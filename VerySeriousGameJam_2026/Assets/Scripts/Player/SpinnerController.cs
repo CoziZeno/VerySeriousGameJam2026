@@ -9,11 +9,9 @@ public class SpinnerController : MonoBehaviour
     public static readonly List<SpinnerController> AllSpinners = new List<SpinnerController>();
 
     [Header("Control")]
-    [Tooltip("If true, reads input from Unity's old Input Manager. If false, use SetMoveInput() from AI or another script.")]
     public bool usePlayerInput = true;
-
-    [Tooltip("Camera transform used to make movement camera-relative. If null, world-relative movement is used.")]
     public Transform cameraTransform;
+    public SpinnerCombat combat;
 
     [Header("Movement")]
     public float baseMoveSpeed = 8f;
@@ -31,7 +29,7 @@ public class SpinnerController : MonoBehaviour
     public int maxHealth = 3;
     public float hitStunDuration = 0.2f;
     public float invulnerabilityDuration = 0.35f;
-    public float knockbackResistance = 0.15f;
+    [Range(0f, 1f)] public float knockbackResistance = 0.15f;
 
     [Header("Powerups")]
     public float speedMultiplier = 1f;
@@ -57,12 +55,15 @@ public class SpinnerController : MonoBehaviour
     public event Action<SpinnerController, int> OnHitTaken;
 
     Rigidbody _rb;
+
     Vector2 _externalMoveInput;
     bool _hasExternalMoveInput;
+
     float _stunnedUntil;
     float _invulnerableUntil;
-    Vector3 _externalHorizontalVelocity;
-    float _externalVelocityUntil;
+
+    float _forcedVelocityUntil;
+    Vector3 _forcedHorizontalVelocity;
 
     readonly List<ActivePowerup> _activePowerups = new List<ActivePowerup>();
 
@@ -91,9 +92,11 @@ public class SpinnerController : MonoBehaviour
         _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         _rb.interpolation = RigidbodyInterpolation.Interpolate;
         _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        _rb.angularDamping = 8f;
 
         CurrentHealth = maxHealth;
+
+        if (combat == null)
+            combat = GetComponent<SpinnerCombat>();
     }
 
     void Update()
@@ -110,6 +113,10 @@ public class SpinnerController : MonoBehaviour
         {
             CurrentMoveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
             CurrentMoveInput = Vector2.ClampMagnitude(CurrentMoveInput, 1f);
+
+            // Dash key for the player.
+            if (combat != null && Input.GetKeyDown(KeyCode.LeftShift))
+                combat.TryDash();
         }
         else if (_hasExternalMoveInput)
         {
@@ -126,10 +133,19 @@ public class SpinnerController : MonoBehaviour
         if (!IsAlive)
             return;
 
-        bool movementAllowed = !IsStunned;
+        Vector3 currentVelocity = _rb.linearVelocity;
+        Vector3 currentHorizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
-        Vector3 moveDir = Vector3.zero;
-        if (movementAllowed && CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
+        bool forcedMoveActive = Time.time < _forcedVelocityUntil;
+        bool controlLocked = IsStunned;
+
+        Vector3 targetHorizontal = currentHorizontal;
+
+        if (forcedMoveActive)
+        {
+            targetHorizontal = _forcedHorizontalVelocity;
+        }
+        else if (!controlLocked && CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
         {
             Vector3 forward = Vector3.forward;
             Vector3 right = Vector3.right;
@@ -140,43 +156,36 @@ public class SpinnerController : MonoBehaviour
                 right = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
             }
 
-            moveDir = (forward * CurrentMoveInput.y + right * CurrentMoveInput.x).normalized;
+            MoveDirectionWorld = (forward * CurrentMoveInput.y + right * CurrentMoveInput.x).normalized;
+            targetHorizontal = MoveDirectionWorld * FinalMoveSpeed;
         }
-
-        MoveDirectionWorld = moveDir;
-
-        Vector3 currentVelocity = _rb.linearVelocity;
-        Vector3 currentHorizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
-
-        Vector3 desiredHorizontal = Vector3.zero;
-
-        if (movementAllowed)
+        else
         {
-            desiredHorizontal = moveDir * FinalMoveSpeed;
+            if (!forcedMoveActive)
+            {
+                MoveDirectionWorld = Vector3.zero;
+
+                if (!controlLocked)
+                    targetHorizontal = Vector3.MoveTowards(currentHorizontal, Vector3.zero, acceleration * Time.fixedDeltaTime);
+                else
+                    targetHorizontal = Vector3.zero;
+            }
         }
 
-        if (Time.time < _externalVelocityUntil)
-        {
-            desiredHorizontal += _externalHorizontalVelocity;
-        }
-
-        Vector3 newHorizontal = Vector3.MoveTowards(
-            currentHorizontal,
-            desiredHorizontal,
-            acceleration * Time.fixedDeltaTime
-        );
+        Vector3 newHorizontal = forcedMoveActive
+            ? targetHorizontal
+            : Vector3.MoveTowards(currentHorizontal, targetHorizontal, acceleration * Time.fixedDeltaTime);
 
         _rb.linearVelocity = new Vector3(newHorizontal.x, currentVelocity.y, newHorizontal.z);
 
-        if (moveDir.sqrMagnitude > 0.001f)
+        if (MoveDirectionWorld.sqrMagnitude > 0.001f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(moveDir, Vector3.up);
+            Quaternion targetRot = Quaternion.LookRotation(MoveDirectionWorld, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, turnSpeed * Time.fixedDeltaTime);
         }
     }
 
     public float FinalMoveSpeed => baseMoveSpeed * speedMultiplier;
-
     public float FinalDamage => damageMultiplier;
     public float FinalAttackRadius => radiusMultiplier;
     public float FinalCooldownMultiplier => cooldownMultiplier;
@@ -194,15 +203,15 @@ public class SpinnerController : MonoBehaviour
         _hasExternalMoveInput = false;
     }
 
-    public void AddExternalVelocity(Vector3 worldVelocity, float duration)
-    {
-        _externalHorizontalVelocity = new Vector3(worldVelocity.x, 0f, worldVelocity.z);
-        _externalVelocityUntil = Mathf.Max(_externalVelocityUntil, Time.time + duration);
-    }
-
-    public void Stun(float duration)
+    public void LockControl(float duration)
     {
         _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + duration);
+    }
+
+    public void ApplyForcedHorizontalVelocity(Vector3 worldHorizontalVelocity, float duration)
+    {
+        _forcedHorizontalVelocity = Vector3.ProjectOnPlane(worldHorizontalVelocity, Vector3.up);
+        _forcedVelocityUntil = Mathf.Max(_forcedVelocityUntil, Time.time + duration);
     }
 
     public void GrantInvulnerability(float duration)
@@ -263,11 +272,15 @@ public class SpinnerController : MonoBehaviour
         CurrentHealth -= Mathf.Max(1, damage);
         OnHitTaken?.Invoke(this, damage);
 
-        Vector3 push = Vector3.ProjectOnPlane(hitDirection, Vector3.up).normalized * knockbackForce;
-        float resistance = Mathf.Clamp01(knockbackResistance);
-        _rb.AddForce(push * (1f - resistance), ForceMode.Impulse);
+        Vector3 pushDir = Vector3.ProjectOnPlane(hitDirection, Vector3.up).normalized;
+        if (pushDir.sqrMagnitude < 0.0001f)
+            pushDir = -transform.forward;
 
-        Stun(stunDuration);
+        float resistance = Mathf.Clamp01(knockbackResistance);
+        Vector3 knockbackVelocity = pushDir * knockbackForce * (1f - resistance);
+
+        ApplyForcedHorizontalVelocity(knockbackVelocity, Mathf.Max(stunDuration, 0.08f));
+        LockControl(stunDuration);
         GrantInvulnerability(invulnerabilityDuration);
 
         if (CurrentHealth <= 0)

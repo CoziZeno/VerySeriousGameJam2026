@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,26 +8,24 @@ public class SpinnerCombat : MonoBehaviour
     [Header("Refs")]
     public SpinnerController controller;
     public Rigidbody rb;
-    public Transform hitOrigin;
 
-    [Header("Attack")]
-    public LayerMask hitMask = ~0;
-    public float attackDuration = 0.22f;
-    public float attackCooldown = 0.65f;
-    public float attackDashSpeed = 14f;
-    public float attackKnockbackForce = 10f;
-    public float hitStunDuration = 0.25f;
-    public int baseDamage = 1;
+    [Header("Contact Combat")]
+    public int baseContactDamage = 1;
+    public float contactKnockbackForce = 8f;
+    public float contactStunDuration = 0.2f;
 
-    [Tooltip("Extra radius added on top of controller powerup multiplier.")]
-    public float baseAttackRadius = 1.35f;
+    [Header("Dash")]
+    public float dashDuration = 0.22f;
+    public float dashCooldown = 0.65f;
+    public float dashSpeed = 14f;
+    public int dashDamageBonus = 1;
+    public float dashKnockbackMultiplier = 1.2f;
 
-    [Tooltip("If true, the attack will only hit each target once per attack.")]
-    public bool hitOncePerAttack = true;
+    [Tooltip("While dashing, this spinner has contact priority.")]
+    public bool IsDashing => Time.time < _dashUntil;
 
-    bool _attacking;
-    float _nextAttackTime;
-    readonly HashSet<SpinnerController> _hitTargets = new HashSet<SpinnerController>();
+    float _dashUntil;
+    float _nextDashTime;
 
     void Reset()
     {
@@ -40,78 +37,77 @@ public class SpinnerCombat : MonoBehaviour
     {
         if (controller == null) controller = GetComponent<SpinnerController>();
         if (rb == null) rb = GetComponent<Rigidbody>();
-        if (hitOrigin == null) hitOrigin = transform;
     }
 
-    public bool CanAttack => !_attacking && Time.time >= _nextAttackTime && controller != null && controller.IsAlive;
+    public bool CanDash => controller != null && controller.IsAlive && Time.time >= _nextDashTime && !IsDashing;
 
-    public void TryAttack()
+    public void TryDash()
     {
-        if (!CanAttack)
+        if (!CanDash)
             return;
-
-        StartCoroutine(AttackRoutine());
-    }
-
-    IEnumerator AttackRoutine()
-    {
-        _attacking = true;
-        _nextAttackTime = Time.time + attackCooldown * controller.FinalCooldownMultiplier;
-        _hitTargets.Clear();
 
         Vector3 dashDir = controller.MoveDirectionWorld.sqrMagnitude > 0.001f
             ? controller.MoveDirectionWorld
             : transform.forward;
 
-        controller.AddExternalVelocity(dashDir * attackDashSpeed, attackDuration);
-        controller.Stun(attackDuration * 0.2f);
+        _dashUntil = Time.time + dashDuration;
+        _nextDashTime = Time.time + dashCooldown * controller.FinalCooldownMultiplier;
 
-        float elapsed = 0f;
-        while (elapsed < attackDuration)
-        {
-            DoHitCheck(dashDir);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        _attacking = false;
+        controller.ApplyForcedHorizontalVelocity(dashDir * dashSpeed, dashDuration);
+        controller.LockControl(dashDuration * 0.15f);
     }
 
-    void DoHitCheck(Vector3 dashDir)
+    void OnCollisionEnter(Collision collision)
     {
-        float radius = baseAttackRadius * controller.FinalAttackRadius;
-        Vector3 origin = hitOrigin != null ? hitOrigin.position : transform.position;
+        SpinnerCombat other = collision.collider.GetComponentInParent<SpinnerCombat>();
+        if (other == null || other == this)
+            return;
 
-        Collider[] hits = Physics.OverlapSphere(origin, radius, hitMask, QueryTriggerInteraction.Ignore);
-        for (int i = 0; i < hits.Length; i++)
-        {
-            SpinnerController other = hits[i].GetComponentInParent<SpinnerController>();
-            if (other == null || other == controller || !other.IsAlive)
-                continue;
+        // Resolve each pair only once.
+        if (GetInstanceID() > other.GetInstanceID())
+            return;
 
-            if (hitOncePerAttack && _hitTargets.Contains(other))
-                continue;
-
-            _hitTargets.Add(other);
-
-            Vector3 hitDirection = (other.transform.position - controller.transform.position).normalized;
-            int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * controller.FinalDamage));
-
-            other.TakeHit(damage, hitDirection, attackKnockbackForce, hitStunDuration);
-        }
+        ResolveContactPair(this, other);
     }
 
-    void OnDrawGizmosSelected()
+    static void ResolveContactPair(SpinnerCombat a, SpinnerCombat b)
     {
-        if (controller == null)
-            controller = GetComponent<SpinnerController>();
+        bool aDash = a.IsDashing;
+        bool bDash = b.IsDashing;
 
-        float radius = baseAttackRadius;
-        if (controller != null)
-            radius = baseAttackRadius * controller.radiusMultiplier;
+        // Dash priority:
+        // - dashing vs normal => only the dashing one damages
+        // - normal vs normal => both damage each other
+        // - dashing vs dashing => both damage each other
+        if (aDash && !bDash)
+        {
+            a.DealHitTo(b, true);
+            return;
+        }
 
-        Vector3 origin = hitOrigin != null ? hitOrigin.position : transform.position;
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawWireSphere(origin, radius);
+        if (!aDash && bDash)
+        {
+            b.DealHitTo(a, true);
+            return;
+        }
+
+        a.DealHitTo(b, aDash);
+        b.DealHitTo(a, bDash);
+    }
+
+    void DealHitTo(SpinnerCombat victim, bool wasDashHit)
+    {
+        if (victim == null || victim.controller == null || !victim.controller.IsAlive)
+            return;
+
+        Vector3 hitDirection = (victim.transform.position - transform.position).normalized;
+
+        int damage = Mathf.Max(1, baseContactDamage + (wasDashHit ? dashDamageBonus : 0));
+        damage = Mathf.RoundToInt(damage * controller.FinalDamage);
+
+        float knockback = contactKnockbackForce * (wasDashHit ? dashKnockbackMultiplier : 1f);
+        float stun = contactStunDuration * (wasDashHit ? 0.85f : 1f);
+
+        victim.controller.TakeHit(damage, hitDirection, knockback, stun);
     }
 }

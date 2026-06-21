@@ -10,17 +10,17 @@ public class SpinnerAI : MonoBehaviour
 
     [Header("AI")]
     public float senseRadius = 20f;
-    public float attackRange = 2.4f;
-    public float strafeAmount = 0.35f;
+    public float preferredDistance = 2.5f;
     public float retargetInterval = 0.35f;
-    public float randomWanderStrength = 0.2f;
+    public float strafeAmount = 0.25f;
 
-    [Header("Targeting")]
-    public LayerMask targetMask = ~0;
+    [Header("Dash Behavior")]
+    public float dashDecisionChance = 0.02f;
+    public float dashRange = 4f;
+    public float faceThreshold = 0.45f;
 
     SpinnerController _target;
     float _nextRetargetTime;
-    Vector2 _wanderDir;
 
     void Reset()
     {
@@ -49,7 +49,7 @@ public class SpinnerAI : MonoBehaviour
 
         if (_target == null)
         {
-            Wander();
+            controller.SetMoveInput(Vector2.zero);
             return;
         }
 
@@ -57,28 +57,23 @@ public class SpinnerAI : MonoBehaviour
         toTarget.y = 0f;
 
         float distance = toTarget.magnitude;
-        Vector3 targetDir = toTarget.sqrMagnitude > 0.001f ? toTarget.normalized : transform.forward;
+        Vector3 dir = toTarget.sqrMagnitude > 0.001f ? toTarget.normalized : transform.forward;
 
-        if (distance > attackRange)
+        if (distance > preferredDistance)
         {
-            Vector3 strafe = Vector3.Cross(Vector3.up, targetDir) * RandomSign() * strafeAmount;
-            Vector3 move = (targetDir + strafe).normalized;
+            Vector3 strafe = Vector3.Cross(Vector3.up, dir) * RandomSign() * strafeAmount;
+            Vector3 move = (dir + strafe).normalized;
             controller.SetMoveInput(WorldToInput(move));
         }
         else
         {
             controller.SetMoveInput(Vector2.zero);
 
-            Vector3 forward = transform.forward;
-            float facing = Vector3.Dot(forward, targetDir);
+            float facing = Vector3.Dot(transform.forward, dir);
 
-            if (facing > 0.4f)
+            if (distance <= dashRange && facing > faceThreshold && combat.CanDash && Random.value < dashDecisionChance)
             {
-                combat.TryAttack();
-            }
-            else
-            {
-                controller.SetMoveInput(WorldToInput(targetDir));
+                combat.TryDash();
             }
         }
     }
@@ -87,17 +82,6 @@ public class SpinnerAI : MonoBehaviour
     {
         if (controller != null)
             controller.ClearMoveInput();
-    }
-
-    void Wander()
-    {
-        if (Time.frameCount % 30 == 0)
-        {
-            _wanderDir = Random.insideUnitCircle.normalized;
-        }
-
-        Vector2 input = _wanderDir * randomWanderStrength;
-        controller.SetMoveInput(input);
     }
 
     SpinnerController FindNearestTarget()
