@@ -15,9 +15,13 @@ public class SpinnerCamera : MonoBehaviour
     public float minDistance = 8f;
     public float maxDistance = 13f;
     public float zoomSpeed = 1.5f;
+    public float manualZoomSpeed = 2f;
+    public float minManualZoom = -4f;
+    public float maxManualZoom = 4f;
 
     Vector3 _velocity;
     Camera _cam;
+    float _manualZoom;
 
     void Awake()
     {
@@ -28,6 +32,10 @@ public class SpinnerCamera : MonoBehaviour
     {
         if (target == null)
             return;
+
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        if (Mathf.Abs(scroll) > 0.001f)
+            _manualZoom = Mathf.Clamp(_manualZoom - scroll * manualZoomSpeed, minManualZoom, maxManualZoom);
 
         Vector3 desiredOffset = offset;
 
@@ -40,8 +48,16 @@ public class SpinnerCamera : MonoBehaviour
 
             float t = Mathf.InverseLerp(0f, 10f, speed * zoomSpeed);
             float dist = Mathf.Lerp(minDistance, maxDistance, t);
+            dist = Mathf.Clamp(dist + _manualZoom, minDistance + minManualZoom, maxDistance + maxManualZoom);
 
             Vector3 flatOffset = new Vector3(offset.x, 0f, offset.z).normalized * dist;
+            desiredOffset = new Vector3(flatOffset.x, offset.y, flatOffset.z);
+        }
+        else if (Mathf.Abs(_manualZoom) > 0.001f)
+        {
+            Vector3 flatOffset = new Vector3(offset.x, 0f, offset.z);
+            float dist = Mathf.Clamp(flatOffset.magnitude + _manualZoom, minDistance + minManualZoom, maxDistance + maxManualZoom);
+            flatOffset = flatOffset.normalized * dist;
             desiredOffset = new Vector3(flatOffset.x, offset.y, flatOffset.z);
         }
 

@@ -117,6 +117,9 @@ public class SpinnerController : MonoBehaviour
             // Dash key for the player.
             if (combat != null && Input.GetKeyDown(KeyCode.LeftShift))
                 combat.TryDash();
+
+            if (combat != null && Input.GetMouseButtonDown(0))
+                combat.TryMeleeAttackAtCursor();
         }
         else if (_hasExternalMoveInput)
         {
