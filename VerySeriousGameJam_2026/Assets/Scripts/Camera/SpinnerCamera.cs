@@ -1,71 +1,90 @@
 using UnityEngine;
 
-[DisallowMultipleComponent]
+[RequireComponent(typeof(Camera))]
 public class SpinnerCamera : MonoBehaviour
 {
     public Transform target;
 
-    [Header("Isometric Follow")]
-    public Vector3 offset = new Vector3(0f, 10f, -10f);
-    public float followSmoothTime = 0.12f;
-    public float lookHeight = 1.2f;
+    [Header("Follow")]
+    public Vector3 offset = new Vector3(0f, 12f, -12f);
+    public float followSpeed = 10f;
 
-    [Header("Zoom")]
-    public bool dynamicZoom = true;
-    public float minDistance = 8f;
-    public float maxDistance = 13f;
-    public float zoomSpeed = 1.5f;
-    public float manualZoomSpeed = 2f;
-    public float minManualZoom = -4f;
-    public float maxManualZoom = 4f;
+    [Header("Speed Zoom")]
+    public float minFOV = 45f;
+    public float maxFOV = 65f;
+    public float zoomSpeed = 5f;
 
-    Vector3 _velocity;
-    Camera _cam;
-    float _manualZoom;
+    [Header("Manual Zoom")]
+    public float scrollSpeed = 5f;
+    public float maxManualZoom = 15f;
 
-    void Awake()
+    private Camera cam;
+    private float manualZoomOffset;
+
+    private void Awake()
     {
-        _cam = GetComponent<Camera>();
+        cam = GetComponent<Camera>();
     }
 
-    void LateUpdate()
+    private void LateUpdate()
     {
         if (target == null)
             return;
 
+        // Follow Player
+        Vector3 targetPosition = target.position + offset;
+
+        transform.position = Vector3.Lerp(
+            transform.position,
+            targetPosition,
+            followSpeed * Time.deltaTime
+        );
+
+        // Look At Player
+        transform.LookAt(target);
+
+        // Mouse Wheel Zoom
         float scroll = Input.GetAxis("Mouse ScrollWheel");
+
         if (Mathf.Abs(scroll) > 0.001f)
-            _manualZoom = Mathf.Clamp(_manualZoom - scroll * manualZoomSpeed, minManualZoom, maxManualZoom);
-
-        Vector3 desiredOffset = offset;
-
-        if (dynamicZoom)
         {
-            float speed = 0f;
-            SpinnerController ctrl = target.GetComponentInParent<SpinnerController>();
-            if (ctrl != null && ctrl.TryGetComponent<Rigidbody>(out var rb))
-                speed = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z).magnitude;
-
-            float t = Mathf.InverseLerp(0f, 10f, speed * zoomSpeed);
-            float dist = Mathf.Lerp(minDistance, maxDistance, t);
-            dist = Mathf.Clamp(dist + _manualZoom, minDistance + minManualZoom, maxDistance + maxManualZoom);
-
-            Vector3 flatOffset = new Vector3(offset.x, 0f, offset.z).normalized * dist;
-            desiredOffset = new Vector3(flatOffset.x, offset.y, flatOffset.z);
-        }
-        else if (Mathf.Abs(_manualZoom) > 0.001f)
-        {
-            Vector3 flatOffset = new Vector3(offset.x, 0f, offset.z);
-            float dist = Mathf.Clamp(flatOffset.magnitude + _manualZoom, minDistance + minManualZoom, maxDistance + maxManualZoom);
-            flatOffset = flatOffset.normalized * dist;
-            desiredOffset = new Vector3(flatOffset.x, offset.y, flatOffset.z);
+            manualZoomOffset -= scroll * scrollSpeed;
+            manualZoomOffset = Mathf.Clamp(
+                manualZoomOffset,
+                -maxManualZoom,
+                maxManualZoom
+            );
         }
 
-        Vector3 desiredPosition = target.position + desiredOffset;
-        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref _velocity, followSmoothTime);
+        // Get Player Speed
+        float speed = 0f;
 
-        Vector3 lookTarget = target.position + Vector3.up * lookHeight;
-        Quaternion desiredRotation = Quaternion.LookRotation(lookTarget - transform.position, Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, 12f * Time.deltaTime);
+        if (target.TryGetComponent<Rigidbody>(out Rigidbody rb))
+        {
+            speed = rb.linearVelocity.magnitude;
+        }
+
+        // Dynamic FOV Based On Speed
+        float targetFOV = Mathf.Lerp(
+            minFOV,
+            maxFOV,
+            Mathf.InverseLerp(0f, 20f, speed)
+        );
+
+        // Apply Manual Zoom Offset
+        targetFOV += manualZoomOffset;
+
+        targetFOV = Mathf.Clamp(
+            targetFOV,
+            minFOV - maxManualZoom,
+            maxFOV + maxManualZoom
+        );
+
+        // Smooth FOV
+        cam.fieldOfView = Mathf.Lerp(
+            cam.fieldOfView,
+            targetFOV,
+            zoomSpeed * Time.deltaTime
+        );
     }
 }
