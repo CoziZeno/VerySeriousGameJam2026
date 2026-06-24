@@ -566,6 +566,10 @@ MonoBehaviour:
   senseRadius: 20
   attackRange: 10
   attackCooldown: 1
+  preferredDistance: 1.4
+  orbitWeight: 0.35
+  separationRadius: 1.75
+  separationWeight: 0.7
 --- !u!114 &1245934054837021257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -578,8 +582,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06a67620c17f5194a9090b0bae0a9b4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyVFX
-  hitVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
-  deathVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
+  hitVFX: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
+  deathVFX: {fileID: 3077343761403282166, guid: f78aaaec3b393e24ca74cd6de8194347, type: 3}
   vfxOffset: {x: 0, y: 0.5, z: 0}
 --- !u!1 &4848716804595286350
 GameObject:

@@ -46,7 +46,7 @@ public class SpinnerController : MonoBehaviour
     public int shieldCharges = 0;
 
     [Header("Elimination")]
-    public bool disableOnEliminate = true;
+    public bool destroyOnEliminate = true;
     public float eliminateDelay = 0.6f;
 
     public int CurrentHealth { get; private set; }
@@ -339,7 +339,11 @@ public class SpinnerController : MonoBehaviour
     System.Collections.IEnumerator EliminateRoutine()
     {
         if (eliminateDelay > 0f) yield return new WaitForSeconds(eliminateDelay);
-        if (disableOnEliminate) gameObject.SetActive(false);
+
+        if (destroyOnEliminate)
+            Destroy(gameObject);
+        else
+            gameObject.SetActive(false);
     }
 
     void UpdatePowerups()

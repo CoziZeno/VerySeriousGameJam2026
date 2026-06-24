@@ -9888,6 +9888,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5143125244560676445, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
+      propertyPath: hitVFX
+      value: 
+      objectReference: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
+    - target: {fileID: 5143125244560676445, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
+      propertyPath: deathVFX
+      value: 
+      objectReference: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
     - target: {fileID: 8480461051736640778, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
       propertyPath: attackForce
       value: 30

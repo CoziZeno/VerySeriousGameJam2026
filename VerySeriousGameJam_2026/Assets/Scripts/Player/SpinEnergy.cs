@@ -30,6 +30,8 @@ public class PlayerSpinEnergy : MonoBehaviour
     public float EnergyPercent => currentEnergy / maxEnergy;
 
     Coroutine _introFillRoutine;
+    bool _restorePlayerInputAfterIntro;
+    bool _inputLockedForIntro;
 
     void Awake()
     {
@@ -50,11 +52,14 @@ public class PlayerSpinEnergy : MonoBehaviour
     {
         if (combat != null)
             combat.OnDealtDamage -= HandleDamageDealt;
+
+        RestorePlayerInputAfterIntro();
     }
 
     void Start()
     {
         currentEnergy = 0f;
+        LockPlayerInputForIntro();
         _introFillRoutine = StartCoroutine(IntroFillRoutine());
     }
 
@@ -79,6 +84,7 @@ public class PlayerSpinEnergy : MonoBehaviour
         currentEnergy = maxEnergy;
         UpdateUI();
         _introFillRoutine = null;
+        RestorePlayerInputAfterIntro();
     }
 
     void Update()
@@ -174,5 +180,25 @@ public class PlayerSpinEnergy : MonoBehaviour
 
         StopCoroutine(_introFillRoutine);
         _introFillRoutine = null;
+        RestorePlayerInputAfterIntro();
+    }
+
+    void LockPlayerInputForIntro()
+    {
+        if (controller == null || controller.isEnemy || introFillDuration <= 0f)
+            return;
+
+        _restorePlayerInputAfterIntro = controller.usePlayerInput;
+        _inputLockedForIntro = true;
+        controller.usePlayerInput = false;
+    }
+
+    void RestorePlayerInputAfterIntro()
+    {
+        if (!_inputLockedForIntro || controller == null || controller.isEnemy)
+            return;
+
+        controller.usePlayerInput = _restorePlayerInputAfterIntro;
+        _inputLockedForIntro = false;
     }
 }

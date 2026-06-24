@@ -6,6 +6,8 @@ public class EnemyVFX : MonoBehaviour
     public GameObject hitVFX;
     public GameObject deathVFX;
     public Vector3 vfxOffset = new Vector3(0f, 0.5f, 0f);
+    public bool makeVFXFollowEnemy = true;
+    public float vfxFallbackLifetime = 3f;
 
     SpinnerController spinner;
 
@@ -41,6 +43,22 @@ public class EnemyVFX : MonoBehaviour
         if (prefab == null)
             return;
 
-        Instantiate(prefab, transform.position + vfxOffset, Random.rotation);
+        GameObject instance = Instantiate(prefab, transform.position + vfxOffset, Random.rotation);
+
+        VFXAutoDestroy autoDestroy = instance.GetComponent<VFXAutoDestroy>();
+        if (autoDestroy == null)
+            autoDestroy = instance.AddComponent<VFXAutoDestroy>();
+
+        autoDestroy.fallbackLifetime = vfxFallbackLifetime;
+
+        if (!makeVFXFollowEnemy)
+            return;
+
+        VFXFollowTarget follower = instance.GetComponent<VFXFollowTarget>();
+        if (follower == null)
+            follower = instance.AddComponent<VFXFollowTarget>();
+
+        follower.target = transform;
+        follower.offset = vfxOffset;
     }
 }
