@@ -584,7 +584,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyVFX
   hitVFX: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
-  deathVFX: {fileID: 3077343761403282166, guid: f78aaaec3b393e24ca74cd6de8194347, type: 3}
+  deathVFX: {fileID: 100002, guid: e9391f622091e1449bdef4ef15af4948, type: 3}
   vfxOffset: {x: 0, y: 0.5, z: 0}
   makeVFXFollowEnemy: 1
   vfxFallbackLifetime: 1.6
