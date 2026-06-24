@@ -3,6 +3,8 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class SpinnerCamera : MonoBehaviour
 {
+    public static SpinnerCamera Instance { get; private set; }
+
     public Transform target;
 
     [Header("Follow")]
@@ -20,10 +22,38 @@ public class SpinnerCamera : MonoBehaviour
 
     private Camera cam;
     private float manualZoomOffset;
+    private float shakeTimeRemaining;
+    private float shakeDuration;
+    private float shakeStrength;
 
     private void Awake()
     {
+        Instance = this;
         cam = GetComponent<Camera>();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
+    public static void Shake(float strength, float duration)
+    {
+        if (Instance == null)
+            return;
+
+        Instance.AddShake(strength, duration);
+    }
+
+    public void AddShake(float strength, float duration)
+    {
+        if (strength <= 0f || duration <= 0f)
+            return;
+
+        shakeStrength = Mathf.Max(shakeStrength, strength);
+        shakeDuration = Mathf.Max(shakeDuration, duration);
+        shakeTimeRemaining = Mathf.Max(shakeTimeRemaining, duration);
     }
 
     private void LateUpdate()
@@ -39,6 +69,22 @@ public class SpinnerCamera : MonoBehaviour
             targetPosition,
             followSpeed * Time.deltaTime
         );
+
+        if (shakeTimeRemaining > 0f)
+        {
+            float progress = shakeDuration > 0f ? shakeTimeRemaining / shakeDuration : 0f;
+            Vector3 shakeOffset = Random.insideUnitSphere * shakeStrength * progress;
+            shakeOffset.y *= 0.35f;
+            transform.position += shakeOffset;
+
+            shakeTimeRemaining -= Time.deltaTime;
+            if (shakeTimeRemaining <= 0f)
+            {
+                shakeTimeRemaining = 0f;
+                shakeDuration = 0f;
+                shakeStrength = 0f;
+            }
+        }
 
         // Look At Player
         transform.LookAt(target);

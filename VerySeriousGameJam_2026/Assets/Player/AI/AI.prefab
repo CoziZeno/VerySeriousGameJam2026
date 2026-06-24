@@ -437,6 +437,7 @@ GameObject:
   - component: {fileID: 95882269497714531}
   - component: {fileID: 3581897425629146768}
   - component: {fileID: 1245934054837021257}
+  - component: {fileID: 4254506467652942777}
   m_Layer: 7
   m_Name: AI
   m_TagString: Enemy
@@ -497,7 +498,7 @@ MonoBehaviour:
   cooldownMultiplier: 1
   spinMultiplier: 1
   shieldCharges: 0
-  disableOnEliminate: 1
+  destroyOnEliminate: 1
   eliminateDelay: 0.6
 --- !u!54 &8103904420609371855
 Rigidbody:
@@ -585,6 +586,28 @@ MonoBehaviour:
   hitVFX: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
   deathVFX: {fileID: 3077343761403282166, guid: f78aaaec3b393e24ca74cd6de8194347, type: 3}
   vfxOffset: {x: 0, y: 0.5, z: 0}
+  makeVFXFollowEnemy: 1
+  vfxFallbackLifetime: 1.6
+--- !u!114 &4254506467652942777
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4380249179378660977}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34b237d4ae651bb46b0fe87a7c7bcd60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpinnerCameraShakeEvents
+  shakeWhenThisSpinnerGetsHit: 1
+  onlyIfPlayer: 1
+  hitShakeStrength: 0.55
+  hitShakeDuration: 0.26
+  shakeWhenThisSpinnerDies: 1
+  onlyIfEnemy: 1
+  eliminationShakeStrength: 0.67
+  eliminationShakeDuration: 0.45
 --- !u!1 &4848716804595286350
 GameObject:
   m_ObjectHideFlags: 0

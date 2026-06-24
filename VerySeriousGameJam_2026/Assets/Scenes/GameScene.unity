@@ -2837,6 +2837,11 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &415227159 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1675992043925896368, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
+  m_PrefabInstance: {fileID: 2146017498}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &417170961
 GameObject:
   m_ObjectHideFlags: 0
@@ -2954,7 +2959,7 @@ MonoBehaviour:
   cooldownMultiplier: 1
   spinMultiplier: 1
   shieldCharges: 0
-  disableOnEliminate: 1
+  destroyOnEliminate: 1
   eliminateDelay: 0.6
 --- !u!54 &417170966
 Rigidbody:
@@ -8329,7 +8334,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1102349140296105909, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
   m_PrefabInstance: {fileID: 2146017498}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 415227159}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a94f4c420c8226a4eae6598be4305ba2, type: 3}
@@ -8340,7 +8345,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 235929603502615709, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
   m_PrefabInstance: {fileID: 2146017498}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 415227159}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9d25a030e1619744fafad46bfa309783, type: 3}
@@ -8351,12 +8356,32 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8480461051736640778, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
   m_PrefabInstance: {fileID: 2146017498}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 415227159}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eed5c4c6221f581448ab24fd932aafb8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerCombat
+--- !u!114 &1806957991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 415227159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34b237d4ae651bb46b0fe87a7c7bcd60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpinnerCameraShakeEvents
+  shakeWhenThisSpinnerGetsHit: 1
+  onlyIfPlayer: 1
+  hitShakeStrength: 0.48
+  hitShakeDuration: 0.26
+  shakeWhenThisSpinnerDies: 1
+  onlyIfEnemy: 1
+  eliminationShakeStrength: 0.16
+  eliminationShakeDuration: 0.8
 --- !u!1 &1818541557
 GameObject:
   m_ObjectHideFlags: 0
@@ -9896,6 +9921,10 @@ PrefabInstance:
       propertyPath: deathVFX
       value: 
       objectReference: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
+    - target: {fileID: 5143125244560676445, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
+      propertyPath: vfxFallbackLifetime
+      value: 1.6
+      objectReference: {fileID: 0}
     - target: {fileID: 8480461051736640778, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
       propertyPath: attackForce
       value: 30
@@ -9919,7 +9948,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1675992043925896368, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1806957991}
   m_SourcePrefab: {fileID: 100100000, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
 --- !u!4 &43766377955326545
 Transform:
