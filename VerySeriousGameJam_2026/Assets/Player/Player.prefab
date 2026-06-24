@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 2441205892411282250}
   - component: {fileID: 2861682621593738277}
   m_Layer: 6
-  m_Name: Canvas
+  m_Name: HP bar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -247,6 +247,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerController
   usePlayerInput: 1
   combat: {fileID: 8480461051736640778}
+  spinEnergy: {fileID: 0}
+  isEnemy: 0
   dashKey: 304
   attackKey: 32
   baseMoveSpeed: 8
@@ -255,10 +257,13 @@ MonoBehaviour:
   inputDeadZone: 0.08
   visualSpinner: {fileID: 2296070707688463095}
   baseVisualSpinSpeed: 720
-  maxHealth: 20
+  maxHealth: 10
   hitStunDuration: 0.2
   invulnerabilityDuration: 0.35
-  knockbackResistance: 0.3
+  knockbackResistance: 0.7
+  hitFlashRenderers: []
+  hitFlashDuration: 0.12
+  hitFlashColor: {r: 1, g: 0, b: 0, a: 1}
   speedMultiplier: 1
   damageMultiplier: 1
   radiusMultiplier: 1
@@ -307,21 +312,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerCombat
   controller: {fileID: 235929603502615709}
-  minImpactThreshold: 2
-  velocityDamageScaling: 0.5
-  velocityKnockbackScaling: 1.5
-  maxHitDamage: 5
-  baseContactDamage: 1
-  baseContactKnockback: 8
-  contactStunDuration: 0.2
   dashDuration: 0.38
   dashCooldown: 0.65
-  dashForce: 20
-  dashDamageMultiplier: 1.5
-  dashKnockbackMultiplier: 1.5
-  lungeCooldown: 2
-  lungeDuration: 0.18
-  lungeForce: 25
+  dashForce: 12
+  attackCooldown: 2
+  attackDuration: 0.18
+  attackForce: 25
+  attackDamage: 3
+  attackKnockback: 20
+  energyLossOnContact: 50
+  contactCooldown: 0.5
 --- !u!114 &1102349140296105909
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -364,6 +364,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerHitVFX
   hitVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
+  deathVFX: {fileID: 100002, guid: e9391f622091e1449bdef4ef15af4948, type: 3}
+  vfxOffset: {x: 0, y: 0.5, z: 0}
 --- !u!1 &4251506512512122896
 GameObject:
   m_ObjectHideFlags: 0
@@ -553,8 +555,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.6709058, y: 0.39849824, z: 1.7518771}
+  m_Center: {x: 0.109889746, y: 0.3817223, z: 0.0809716}
 --- !u!1 &5418291294750336061
 GameObject:
   m_ObjectHideFlags: 0

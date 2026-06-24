@@ -11,6 +11,8 @@ public class SpinnerController : MonoBehaviour
     [Header("Control")]
     public bool usePlayerInput = true;
     public SpinnerCombat combat;
+    public PlayerSpinEnergy spinEnergy;
+    public bool isEnemy;
     public KeyCode dashKey = KeyCode.LeftShift;
     public KeyCode attackKey = KeyCode.Space;
 
@@ -89,6 +91,9 @@ public class SpinnerController : MonoBehaviour
         CurrentHealth = maxHealth;
         if (combat == null) combat = GetComponent<SpinnerCombat>();
 
+        if (spinEnergy == null)
+            spinEnergy = GetComponent<PlayerSpinEnergy>();
+
         CacheHitFlashRenderers();
         StoreBaseRendererColors();
     }
@@ -100,6 +105,10 @@ public class SpinnerController : MonoBehaviour
         if (visualSpinner != null)
         {
             float spinSpeed = baseVisualSpinSpeed * spinMultiplier;
+
+            if (!isEnemy && spinEnergy != null)
+                spinSpeed *= spinEnergy.GetSpinMultiplier();
+
             visualSpinner.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.Self);
         }
 
@@ -161,7 +170,18 @@ public class SpinnerController : MonoBehaviour
         }
     }
 
-    public float FinalMoveSpeed => baseMoveSpeed * speedMultiplier;
+    public float FinalMoveSpeed
+    {
+        get
+        {
+            float energyMultiplier = 1f;
+
+            if (!isEnemy && spinEnergy != null)
+                energyMultiplier = spinEnergy.GetMovementMultiplier();
+
+            return baseMoveSpeed * speedMultiplier * energyMultiplier;
+        }
+    }
     public float FinalDamage => damageMultiplier;
     public float FinalAttackRadius => radiusMultiplier;
     public float FinalCooldownMultiplier => cooldownMultiplier;
@@ -187,6 +207,15 @@ public class SpinnerController : MonoBehaviour
     public void GrantInvulnerability(float duration)
     {
         _invulnerableUntil = Mathf.Max(_invulnerableUntil, Time.time + duration);
+    }
+
+    public void DrainSpinEnergy(float amount)
+    {
+        if (spinEnergy == null)
+            spinEnergy = GetComponent<PlayerSpinEnergy>();
+
+        if (spinEnergy != null)
+            spinEnergy.DrainEnergy(amount);
     }
 
     public void ApplyPowerup(PowerupData data)
@@ -342,5 +371,15 @@ public class SpinnerController : MonoBehaviour
 
         speedMultiplier = speed; damageMultiplier = damage; radiusMultiplier = radius;
         cooldownMultiplier = cooldown; spinMultiplier = spin;
+    }
+
+    public void ForceEliminate()
+    {
+        if (!IsAlive)
+            return;
+
+        CurrentHealth = 0;
+        OnEliminated?.Invoke(this);
+        StartCoroutine(EliminateRoutine());
     }
 }

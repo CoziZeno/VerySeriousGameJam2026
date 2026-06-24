@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -7,178 +8,183 @@ public class SpinnerCombat : MonoBehaviour
 {
     [Header("Refs")]
     public SpinnerController controller;
-    public Collider[] dashDisabledColliders;
 
-    [Header("Momentum Combat")]
-    public float minImpactThreshold = 2f;
-    public float velocityDamageScaling = 0.5f;
-    public float velocityKnockbackScaling = 1.5f;
-    public int maxHitDamage = 5;
-
-    [Header("Contact Base Stats")]
-    public int baseContactDamage = 1;
-    public float baseContactKnockback = 8f;
-    public float contactStunDuration = 0.15f;
-
-    [Header("Dash Attack")]
+    [Header("Dash")]
     public float dashDuration = 0.22f;
     public float dashCooldown = 0.65f;
-    public float dashForce = 20f;
-    public float dashDamageMultiplier = 1.5f;
-    public float dashKnockbackMultiplier = 2.0f;
+    public float dashForce = 12f;
 
-    [Header("Lunge Attack")]
-    public float lungeCooldown = 2f;
-    public float lungeDuration = 0.18f;
-    public float lungeForce = 25f;
+    [Header("Attack")]
+    public float attackCooldown = 2f;
+    public float attackDuration = 0.18f;
+    public float attackForce = 25f;
+    public int attackDamage = 3;
+    public float attackKnockback = 20f;
+
+    [Header("Energy Drain")]
+    public float energyLossOnContact = 10f;
+    public float contactCooldown = 0.5f;
 
     public bool IsDashing => Time.time < _dashUntil;
-    public bool IsLunging => Time.time < _lungeUntil;
+    public bool IsAttacking => Time.time < _attackUntil;
+    public bool CanLunge => CanAttack;
 
-    // Events for SpinnerUpgradeManager
     public event Action<SpinnerCombat, int, bool> OnDealtDamage;
-    public event Action<SpinnerCombat, bool> OnClash;
 
     float _dashUntil;
+    float _attackUntil;
+
     float _nextDashTime;
-    float _lungeUntil;
-    float _nextLungeTime;
-    Coroutine _dashColliderRoutine;
+    float _nextAttackTime;
+
+    readonly Dictionary<SpinnerCombat, float> _contactTimers =
+        new Dictionary<SpinnerCombat, float>();
+    readonly HashSet<SpinnerCombat> _hitTargetsThisAttack =
+        new HashSet<SpinnerCombat>();
 
     void Awake()
     {
-        if (controller == null) controller = GetComponent<SpinnerController>();
-        CacheDashColliders();
+        if (controller == null)
+            controller = GetComponent<SpinnerController>();
     }
 
-    public bool CanDash => controller != null && controller.IsAlive && Time.time >= _nextDashTime && !IsDashing && !IsLunging;
-    public bool CanLunge => controller != null && controller.IsAlive && Time.time >= _nextLungeTime && !IsDashing && !IsLunging;
+    public bool CanDash =>
+        controller != null &&
+        controller.IsAlive &&
+        Time.time >= _nextDashTime &&
+        !IsDashing &&
+        !IsAttacking;
+
+    public bool CanAttack =>
+        controller != null &&
+        controller.IsAlive &&
+        Time.time >= _nextAttackTime &&
+        !IsDashing &&
+        !IsAttacking;
 
     public void TryDash()
     {
-        if (!CanDash) return;
+        if (!CanDash)
+            return;
 
-        Vector3 dashDir = controller.MoveDirectionWorld.sqrMagnitude > 0.001f
-            ? controller.MoveDirectionWorld : transform.forward;
+        Vector3 dashDir =
+            controller.MoveDirectionWorld.sqrMagnitude > 0.001f
+            ? controller.MoveDirectionWorld
+            : transform.forward;
 
         _dashUntil = Time.time + dashDuration;
-        _nextDashTime = Time.time + dashCooldown * controller.FinalCooldownMultiplier;
+        _nextDashTime = Time.time + dashCooldown;
 
-        ToggleDashColliders(false);
-        if (_dashColliderRoutine != null)
-            StopCoroutine(_dashColliderRoutine);
-        _dashColliderRoutine = StartCoroutine(ReenableDashCollidersAfterDelay(dashDuration));
+        controller.GrantInvulnerability(dashDuration);
 
-        // Apply burst of physical speed
-        controller.Rb.AddForce(dashDir * dashForce, ForceMode.VelocityChange);
+        controller.Rb.AddForce(
+            dashDir * dashForce,
+            ForceMode.VelocityChange);
+
         controller.LockControl(dashDuration * 0.5f);
     }
 
     public void TryLungeAttack()
     {
-        if (!CanLunge) return;
+        if (!CanAttack)
+            return;
 
-        // Attacks in the direction we are moving
-        Vector3 attackDir = controller.MoveDirectionWorld.sqrMagnitude > 0.001f
-            ? controller.MoveDirectionWorld : transform.forward;
+        Vector3 attackDir =
+            controller.MoveDirectionWorld.sqrMagnitude > 0.001f
+            ? controller.MoveDirectionWorld
+            : transform.forward;
 
-        _lungeUntil = Time.time + lungeDuration;
-        _nextLungeTime = Time.time + lungeCooldown * controller.FinalCooldownMultiplier;
+        _attackUntil = Time.time + attackDuration;
+        _nextAttackTime =
+            Time.time + attackCooldown * controller.FinalCooldownMultiplier;
 
-        controller.Rb.AddForce(attackDir * lungeForce, ForceMode.VelocityChange);
-        controller.LockControl(lungeDuration);
-    }
+        _hitTargetsThisAttack.Clear();
 
-    void CacheDashColliders()
-    {
-        if (dashDisabledColliders != null && dashDisabledColliders.Length > 0) return;
-        dashDisabledColliders = GetComponentsInChildren<Collider>(true);
-    }
+        controller.Rb.AddForce(
+            attackDir * attackForce,
+            ForceMode.VelocityChange);
 
-    System.Collections.IEnumerator ReenableDashCollidersAfterDelay(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        ToggleDashColliders(true);
-        _dashColliderRoutine = null;
-    }
-
-    void ToggleDashColliders(bool isEnabled)
-    {
-        if (dashDisabledColliders == null) return;
-
-        for (int i = 0; i < dashDisabledColliders.Length; i++)
-        {
-            Collider col = dashDisabledColliders[i];
-            if (col == null || col.isTrigger) continue;
-            col.enabled = isEnabled;
-        }
+        controller.LockControl(attackDuration);
     }
 
     void OnCollisionEnter(Collision collision)
     {
-        SpinnerCombat other = collision.collider.GetComponentInParent<SpinnerCombat>();
-        if (other == null || other == this) return;
+        SpinnerCombat other =
+            collision.collider.GetComponentInParent<SpinnerCombat>();
 
-        if (GetInstanceID() > other.GetInstanceID()) return;
-
-        float impactForce = collision.relativeVelocity.magnitude;
-        if (impactForce < minImpactThreshold) return;
-
-        Vector3 hitNormal = collision.GetContact(0).normal;
-        hitNormal.y = 0;
-        hitNormal.Normalize();
-
-        ResolveDynamicImpact(this, other, impactForce, hitNormal);
-    }
-
-    static void ResolveDynamicImpact(SpinnerCombat a, SpinnerCombat b, float impactForce, Vector3 hitNormalFromBtoA)
-    {
-        bool aAggressive = a.IsDashing || a.IsLunging;
-        bool bAggressive = b.IsDashing || b.IsLunging;
-
-        if (aAggressive && bAggressive)
-        {
-            a.OnClash?.Invoke(b, true);
-            b.OnClash?.Invoke(a, true);
-
-            a.ProcessHitReceived(b, impactForce, hitNormalFromBtoA, isClash: true);
-            b.ProcessHitReceived(a, impactForce, -hitNormalFromBtoA, isClash: true);
+        if (other == null || other == this)
             return;
-        }
 
-        a.ProcessHitReceived(b, impactForce, hitNormalFromBtoA, isClash: false);
-        b.ProcessHitReceived(a, impactForce, -hitNormalFromBtoA, isClash: false);
+        HandleCollision(other);
     }
 
-    void ProcessHitReceived(SpinnerCombat attacker, float impactForce, Vector3 pushDirection, bool isClash)
+    void OnCollisionStay(Collision collision)
     {
-        if (controller == null || !controller.IsAlive) return;
+        SpinnerCombat other =
+            collision.collider.GetComponentInParent<SpinnerCombat>();
 
-        bool attackerAggressive = attacker.IsDashing || attacker.IsLunging;
-        bool iAmAggressive = IsDashing || IsLunging;
+        if (other == null || other == this)
+            return;
 
-        float rawDamage = baseContactDamage + (impactForce * velocityDamageScaling);
-        if (attackerAggressive && !isClash) rawDamage *= attacker.dashDamageMultiplier;
-        if (isClash) rawDamage *= 0.25f; // Clashes do chip damage
-        if (iAmAggressive && !isClash) rawDamage *= 0.5f; // Armor while aggressive
+        HandleCollision(other);
+    }
 
-        int finalDamage = Mathf.RoundToInt(rawDamage * attacker.controller.FinalDamage);
-        finalDamage = Mathf.Clamp(finalDamage, 0, maxHitDamage);
+    void HandleCollision(SpinnerCombat other)
+    {
+        if (controller == null || other.controller == null)
+            return;
 
-        float rawKnockback = baseContactKnockback + (impactForce * velocityKnockbackScaling);
-        if (attackerAggressive || isClash) rawKnockback *= attacker.dashKnockbackMultiplier;
+        if (controller.isEnemy == other.controller.isEnemy)
+            return;
 
-        float stun = contactStunDuration * (attackerAggressive ? 1.5f : 1f);
+        if (IsAttacking)
+            DamageTarget(other);
 
-        if (finalDamage > 0)
+        if (controller.isEnemy && !other.controller.isEnemy)
+            DrainPlayerEnergy(other);
+    }
+
+    void DamageTarget(SpinnerCombat target)
+    {
+        if (!target.controller.IsAlive)
+            return;
+
+        if (_hitTargetsThisAttack.Contains(target))
+            return;
+
+        _hitTargetsThisAttack.Add(target);
+
+        Vector3 pushDirection =
+            target.transform.position - transform.position;
+
+        pushDirection.y = 0f;
+
+        if (pushDirection.sqrMagnitude < 0.001f)
+            pushDirection = transform.forward;
+
+        target.controller.TakeHit(
+            Mathf.RoundToInt(attackDamage * controller.FinalDamage),
+            pushDirection.normalized,
+            attackKnockback,
+            0.35f);
+
+        OnDealtDamage?.Invoke(
+            target,
+            attackDamage,
+            true);
+    }
+
+    void DrainPlayerEnergy(SpinnerCombat player)
+    {
+        if (_contactTimers.TryGetValue(player, out float nextTime))
         {
-            controller.TakeHit(finalDamage, pushDirection, rawKnockback, stun);
-            attacker.OnDealtDamage?.Invoke(this, finalDamage, attackerAggressive);
+            if (Time.time < nextTime)
+                return;
         }
-        else
-        {
-            // Just push them physically
-            controller.Rb.AddForce(pushDirection * rawKnockback, ForceMode.Impulse);
-        }
+
+        _contactTimers[player] =
+            Time.time + contactCooldown;
+
+        player.controller.DrainSpinEnergy(energyLossOnContact);
     }
 }

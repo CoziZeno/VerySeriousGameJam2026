@@ -474,6 +474,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerController
   usePlayerInput: 0
   combat: {fileID: 0}
+  spinEnergy: {fileID: 0}
+  isEnemy: 1
   dashKey: 304
   attackKey: 32
   baseMoveSpeed: 8
@@ -537,22 +539,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerCombat
   controller: {fileID: 5688744564341301403}
-  dashDisabledColliders: []
-  minImpactThreshold: 2
-  velocityDamageScaling: 0.5
-  velocityKnockbackScaling: 1.5
-  maxHitDamage: 5
-  baseContactDamage: 1
-  baseContactKnockback: 8
-  contactStunDuration: 0.2
   dashDuration: 0.22
-  dashCooldown: 0.65
-  dashForce: 20
-  dashDamageMultiplier: 1.5
-  dashKnockbackMultiplier: 1.2
-  lungeCooldown: 2
-  lungeDuration: 0.18
-  lungeForce: 25
+  dashCooldown: 3
+  dashForce: 10
+  attackCooldown: 2
+  attackDuration: 0.18
+  attackForce: 25
+  attackDamage: 1
+  attackKnockback: 20
+  energyLossOnContact: 2
+  contactCooldown: 0.5
 --- !u!114 &3581897425629146768
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -568,10 +564,8 @@ MonoBehaviour:
   controller: {fileID: 5688744564341301403}
   combat: {fileID: 95882269497714531}
   senseRadius: 20
-  preferredDistance: 2.5
-  orbitChangeInterval: 2.5
-  attackRange: 4.5
-  faceThreshold: 0.45
+  attackRange: 10
+  attackCooldown: 1
 --- !u!114 &1245934054837021257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -700,8 +694,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.6709058, y: 0.42335096, z: 1.7518771}
+  m_Center: {x: 0.109889746, y: 0.15841241, z: 0.0809716}
 --- !u!1001 &1243968775174985921
 PrefabInstance:
   m_ObjectHideFlags: 0

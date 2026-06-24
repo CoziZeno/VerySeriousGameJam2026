@@ -11,15 +11,6 @@ public class KillZone : MonoBehaviour
         if (spinner == null)
             return;
 
-        if (other.CompareTag("Player"))
-        {
-            gameOverUI.SetActive(true);
-            Time.timeScale = 0f;
-        }
-        else
-        {
-            WaveManager.Instance.EnemyKilled();
-            Destroy(gameObject);
-        }
+        spinner.ForceEliminate();
     }
 }

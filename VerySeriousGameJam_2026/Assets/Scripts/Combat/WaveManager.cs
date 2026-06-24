@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.UI;
 using TMPro;
 
@@ -19,6 +20,7 @@ public class WaveManager : MonoBehaviour
     private int aliveEnemies;
     private int totalEnemiesThisWave;
     private bool waveActive;
+    private readonly HashSet<SpinnerController> _activeWaveEnemies = new HashSet<SpinnerController>();
 
     private void Awake()
     {
@@ -36,14 +38,13 @@ public class WaveManager : MonoBehaviour
 
         int enemyCount = 2 + currentWave;
 
-        totalEnemiesThisWave = enemyCount;
-        aliveEnemies = enemyCount;
+        ClearWaveEnemySubscriptions();
+        RegisterWaveEnemies(spawner.SpawnWave(enemyCount));
+
         UpdateWaveUI();
         UpdateWaveNumberUI();
 
         Debug.Log($"Starting Wave {currentWave} | Enemies: {enemyCount}");
-
-        spawner.SpawnWave(enemyCount);
     }
 
     public void EnemyKilled()
@@ -51,14 +52,7 @@ public class WaveManager : MonoBehaviour
         if (!waveActive)
             return;
 
-        aliveEnemies--;
-        aliveEnemies = Mathf.Max(0, aliveEnemies);
-        UpdateWaveUI();
-
-        if (aliveEnemies <= 0)
-        {
-            WaveComplete();
-        }
+        ForceWaveProgressRefresh();
     }
 
     void WaveComplete()
@@ -108,22 +102,6 @@ public class WaveManager : MonoBehaviour
         StartWave();
     }
 
-
-    void Update()
-    {
-        if (!waveActive)
-            return;
-
-        aliveEnemies = GameObject.FindGameObjectsWithTag("Enemy").Length;
-        UpdateWaveUI();
-
-        if (aliveEnemies == 0)
-        {
-            waveActive = false;
-            StartCoroutine(OpenShopDelay());
-        }
-    }
-
     void UpdateWaveUI()
     {
         if (waveForegroundFill == null)
@@ -144,5 +122,66 @@ public class WaveManager : MonoBehaviour
             return;
 
         waveNumberText.text = $"Wave {currentWave}";
+    }
+
+    void RegisterWaveEnemies(List<SpinnerController> enemies)
+    {
+        _activeWaveEnemies.Clear();
+
+        if (enemies == null)
+        {
+            totalEnemiesThisWave = 0;
+            aliveEnemies = 0;
+            return;
+        }
+
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            SpinnerController enemy = enemies[i];
+            if (enemy == null)
+                continue;
+
+            if (_activeWaveEnemies.Add(enemy))
+                enemy.OnEliminated += HandleWaveEnemyEliminated;
+        }
+
+        totalEnemiesThisWave = _activeWaveEnemies.Count;
+        aliveEnemies = totalEnemiesThisWave;
+    }
+
+    void HandleWaveEnemyEliminated(SpinnerController enemy)
+    {
+        if (!_activeWaveEnemies.Remove(enemy))
+            return;
+
+        enemy.OnEliminated -= HandleWaveEnemyEliminated;
+        aliveEnemies = _activeWaveEnemies.Count;
+        UpdateWaveUI();
+
+        if (waveActive && aliveEnemies <= 0)
+            WaveComplete();
+    }
+
+    void ForceWaveProgressRefresh()
+    {
+        _activeWaveEnemies.RemoveWhere(enemy => enemy == null || !enemy.IsAlive || !enemy.gameObject.activeInHierarchy);
+        aliveEnemies = _activeWaveEnemies.Count;
+        UpdateWaveUI();
+
+        if (waveActive && aliveEnemies <= 0)
+            WaveComplete();
+    }
+
+    void ClearWaveEnemySubscriptions()
+    {
+        foreach (SpinnerController enemy in _activeWaveEnemies)
+        {
+            if (enemy != null)
+                enemy.OnEliminated -= HandleWaveEnemyEliminated;
+        }
+
+        _activeWaveEnemies.Clear();
+        aliveEnemies = 0;
+        totalEnemiesThisWave = 0;
     }
 }
