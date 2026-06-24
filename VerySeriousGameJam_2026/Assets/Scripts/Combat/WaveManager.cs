@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.UI;
+using TMPro;
 
 public class WaveManager : MonoBehaviour
 {
@@ -8,11 +10,14 @@ public class WaveManager : MonoBehaviour
     [Header("References")]
     public EnemySpawner spawner;
     public GameObject shopPanel;
+    public Image waveForegroundFill;
+    public TMP_Text waveNumberText;
 
     [Header("Wave Info")]
     public int currentWave = 1;
 
     private int aliveEnemies;
+    private int totalEnemiesThisWave;
     private bool waveActive;
 
     private void Awake()
@@ -31,7 +36,10 @@ public class WaveManager : MonoBehaviour
 
         int enemyCount = 2 + currentWave;
 
+        totalEnemiesThisWave = enemyCount;
         aliveEnemies = enemyCount;
+        UpdateWaveUI();
+        UpdateWaveNumberUI();
 
         Debug.Log($"Starting Wave {currentWave} | Enemies: {enemyCount}");
 
@@ -44,6 +52,8 @@ public class WaveManager : MonoBehaviour
             return;
 
         aliveEnemies--;
+        aliveEnemies = Mathf.Max(0, aliveEnemies);
+        UpdateWaveUI();
 
         if (aliveEnemies <= 0)
         {
@@ -54,6 +64,8 @@ public class WaveManager : MonoBehaviour
     void WaveComplete()
     {
         waveActive = false;
+        aliveEnemies = 0;
+        UpdateWaveUI();
 
         Debug.Log("Wave Complete!");
 
@@ -102,10 +114,35 @@ public class WaveManager : MonoBehaviour
         if (!waveActive)
             return;
 
-        if (GameObject.FindGameObjectsWithTag("Enemy").Length == 0)
+        aliveEnemies = GameObject.FindGameObjectsWithTag("Enemy").Length;
+        UpdateWaveUI();
+
+        if (aliveEnemies == 0)
         {
             waveActive = false;
             StartCoroutine(OpenShopDelay());
         }
+    }
+
+    void UpdateWaveUI()
+    {
+        if (waveForegroundFill == null)
+            return;
+
+        if (totalEnemiesThisWave <= 0)
+        {
+            waveForegroundFill.fillAmount = 0f;
+            return;
+        }
+
+        waveForegroundFill.fillAmount = Mathf.Clamp01((float)aliveEnemies / totalEnemiesThisWave);
+    }
+
+    void UpdateWaveNumberUI()
+    {
+        if (waveNumberText == null)
+            return;
+
+        waveNumberText.text = $"Wave {currentWave}";
     }
 }

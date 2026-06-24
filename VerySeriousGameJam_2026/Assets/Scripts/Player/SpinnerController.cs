@@ -30,6 +30,11 @@ public class SpinnerController : MonoBehaviour
     public float invulnerabilityDuration = 0.05f; // Shortened so consecutive hits matter
     [Range(0f, 1f)] public float knockbackResistance = 0.1f;
 
+    [Header("Hit Flash")]
+    public Renderer[] hitFlashRenderers;
+    public float hitFlashDuration = 0.12f;
+    public Color hitFlashColor = Color.red;
+
     [Header("Powerups")]
     public float speedMultiplier = 1f;
     public float damageMultiplier = 1f;
@@ -59,8 +64,10 @@ public class SpinnerController : MonoBehaviour
     bool _hasExternalMoveInput;
     float _stunnedUntil;
     float _invulnerableUntil;
+    Coroutine _hitFlashRoutine;
 
     readonly List<ActivePowerup> _activePowerups = new List<ActivePowerup>();
+    readonly Dictionary<Renderer, Color> _baseRendererColors = new Dictionary<Renderer, Color>();
 
     [Serializable]
     class ActivePowerup
@@ -81,6 +88,9 @@ public class SpinnerController : MonoBehaviour
 
         CurrentHealth = maxHealth;
         if (combat == null) combat = GetComponent<SpinnerCombat>();
+
+        CacheHitFlashRenderers();
+        StoreBaseRendererColors();
     }
 
     void Update()
@@ -209,6 +219,7 @@ public class SpinnerController : MonoBehaviour
 
         CurrentHealth -= Mathf.Max(1, damage);
         OnHitTaken?.Invoke(this, damage);
+        TriggerHitFlash();
 
         float resistance = Mathf.Clamp01(knockbackResistance);
         float finalKnockback = knockbackForce * (1f - resistance);
@@ -224,6 +235,75 @@ public class SpinnerController : MonoBehaviour
             CurrentHealth = 0;
             OnEliminated?.Invoke(this);
             StartCoroutine(EliminateRoutine());
+        }
+    }
+
+    void CacheHitFlashRenderers()
+    {
+        if (hitFlashRenderers != null && hitFlashRenderers.Length > 0) return;
+
+        if (visualSpinner != null)
+            hitFlashRenderers = visualSpinner.GetComponentsInChildren<Renderer>(true);
+        else
+            hitFlashRenderers = GetComponentsInChildren<Renderer>(true);
+    }
+
+    void StoreBaseRendererColors()
+    {
+        _baseRendererColors.Clear();
+        if (hitFlashRenderers == null) return;
+
+        for (int i = 0; i < hitFlashRenderers.Length; i++)
+        {
+            Renderer rendererRef = hitFlashRenderers[i];
+            if (rendererRef == null) continue;
+
+            Material material = rendererRef.material;
+            if (material != null && material.HasProperty("_Color"))
+                _baseRendererColors[rendererRef] = material.color;
+        }
+    }
+
+    void TriggerHitFlash()
+    {
+        if (_hitFlashRoutine != null)
+            StopCoroutine(_hitFlashRoutine);
+
+        _hitFlashRoutine = StartCoroutine(HitFlashRoutine());
+    }
+
+    System.Collections.IEnumerator HitFlashRoutine()
+    {
+        SetHitFlashColor(hitFlashColor);
+        yield return new WaitForSeconds(hitFlashDuration);
+        RestoreHitFlashColors();
+        _hitFlashRoutine = null;
+    }
+
+    void SetHitFlashColor(Color color)
+    {
+        if (hitFlashRenderers == null) return;
+
+        for (int i = 0; i < hitFlashRenderers.Length; i++)
+        {
+            Renderer rendererRef = hitFlashRenderers[i];
+            if (rendererRef == null) continue;
+
+            Material material = rendererRef.material;
+            if (material != null && material.HasProperty("_Color"))
+                material.color = color;
+        }
+    }
+
+    void RestoreHitFlashColors()
+    {
+        foreach (var entry in _baseRendererColors)
+        {
+            if (entry.Key == null) continue;
+
+            Material material = entry.Key.material;
+            if (material != null && material.HasProperty("_Color"))
+                material.color = entry.Value;
         }
     }
 

@@ -436,6 +436,7 @@ GameObject:
   - component: {fileID: 8103904420609371855}
   - component: {fileID: 95882269497714531}
   - component: {fileID: 3581897425629146768}
+  - component: {fileID: 1245934054837021257}
   m_Layer: 7
   m_Name: AI
   m_TagString: Enemy
@@ -485,6 +486,9 @@ MonoBehaviour:
   hitStunDuration: 0.2
   invulnerabilityDuration: 0.35
   knockbackResistance: 0.3
+  hitFlashRenderers: []
+  hitFlashDuration: 0.12
+  hitFlashColor: {r: 1, g: 0, b: 0, a: 1}
   speedMultiplier: 1
   damageMultiplier: 1
   radiusMultiplier: 1
@@ -533,6 +537,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerCombat
   controller: {fileID: 5688744564341301403}
+  dashDisabledColliders: []
   minImpactThreshold: 2
   velocityDamageScaling: 0.5
   velocityKnockbackScaling: 1.5
@@ -567,6 +572,21 @@ MonoBehaviour:
   orbitChangeInterval: 2.5
   attackRange: 4.5
   faceThreshold: 0.45
+--- !u!114 &1245934054837021257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4380249179378660977}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06a67620c17f5194a9090b0bae0a9b4a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyVFX
+  hitVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
+  deathVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
+  vfxOffset: {x: 0, y: 0.5, z: 0}
 --- !u!1 &4848716804595286350
 GameObject:
   m_ObjectHideFlags: 0

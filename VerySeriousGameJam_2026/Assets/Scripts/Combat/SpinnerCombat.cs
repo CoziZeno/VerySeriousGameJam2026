@@ -7,6 +7,7 @@ public class SpinnerCombat : MonoBehaviour
 {
     [Header("Refs")]
     public SpinnerController controller;
+    public Collider[] dashDisabledColliders;
 
     [Header("Momentum Combat")]
     public float minImpactThreshold = 2f;
@@ -42,10 +43,12 @@ public class SpinnerCombat : MonoBehaviour
     float _nextDashTime;
     float _lungeUntil;
     float _nextLungeTime;
+    Coroutine _dashColliderRoutine;
 
     void Awake()
     {
         if (controller == null) controller = GetComponent<SpinnerController>();
+        CacheDashColliders();
     }
 
     public bool CanDash => controller != null && controller.IsAlive && Time.time >= _nextDashTime && !IsDashing && !IsLunging;
@@ -60,6 +63,11 @@ public class SpinnerCombat : MonoBehaviour
 
         _dashUntil = Time.time + dashDuration;
         _nextDashTime = Time.time + dashCooldown * controller.FinalCooldownMultiplier;
+
+        ToggleDashColliders(false);
+        if (_dashColliderRoutine != null)
+            StopCoroutine(_dashColliderRoutine);
+        _dashColliderRoutine = StartCoroutine(ReenableDashCollidersAfterDelay(dashDuration));
 
         // Apply burst of physical speed
         controller.Rb.AddForce(dashDir * dashForce, ForceMode.VelocityChange);
@@ -79,6 +87,31 @@ public class SpinnerCombat : MonoBehaviour
 
         controller.Rb.AddForce(attackDir * lungeForce, ForceMode.VelocityChange);
         controller.LockControl(lungeDuration);
+    }
+
+    void CacheDashColliders()
+    {
+        if (dashDisabledColliders != null && dashDisabledColliders.Length > 0) return;
+        dashDisabledColliders = GetComponentsInChildren<Collider>(true);
+    }
+
+    System.Collections.IEnumerator ReenableDashCollidersAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        ToggleDashColliders(true);
+        _dashColliderRoutine = null;
+    }
+
+    void ToggleDashColliders(bool isEnabled)
+    {
+        if (dashDisabledColliders == null) return;
+
+        for (int i = 0; i < dashDisabledColliders.Length; i++)
+        {
+            Collider col = dashDisabledColliders[i];
+            if (col == null || col.isTrigger) continue;
+            col.enabled = isEnabled;
+        }
     }
 
     void OnCollisionEnter(Collision collision)

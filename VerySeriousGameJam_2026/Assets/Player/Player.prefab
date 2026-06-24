@@ -209,6 +209,7 @@ GameObject:
   - component: {fileID: 8480461051736640778}
   - component: {fileID: 1102349140296105909}
   - component: {fileID: 3234771455930800751}
+  - component: {fileID: 5143125244560676445}
   m_Layer: 6
   m_Name: Player
   m_TagString: Untagged
@@ -350,6 +351,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerGameOverTrigger
   gameOverUI: {fileID: 0}
   voidTag: Void
+--- !u!114 &5143125244560676445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1675992043925896368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06a67620c17f5194a9090b0bae0a9b4a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpinnerHitVFX
+  hitVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
 --- !u!1 &4251506512512122896
 GameObject:
   m_ObjectHideFlags: 0
