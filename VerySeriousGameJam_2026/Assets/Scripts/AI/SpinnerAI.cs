@@ -14,6 +14,12 @@ public class SpinnerAI : MonoBehaviour
     [Header("Attack")]
     public float attackRange = 3.5f;
     public float attackCooldown = 3f;
+    public float preferredDistance = 1.4f;
+    public float orbitWeight = 0.35f;
+
+    [Header("Spacing")]
+    public float separationRadius = 1.75f;
+    public float separationWeight = 0.7f;
 
     SpinnerController _target;
     float _nextRetargetTime;
@@ -61,6 +67,17 @@ public class SpinnerAI : MonoBehaviour
             distance > 0.001f
             ? toTarget.normalized
             : transform.forward;
+
+        if (distance < preferredDistance)
+        {
+            Vector3 awayFromTarget = -moveDir;
+            Vector3 orbitDir = Vector3.Cross(Vector3.up, moveDir).normalized;
+            moveDir = (awayFromTarget + orbitDir * orbitWeight).normalized;
+        }
+
+        Vector3 separation = GetEnemySeparation();
+        if (separation.sqrMagnitude > 0.001f)
+            moveDir = (moveDir + separation.normalized * separationWeight).normalized;
 
         // ALWAYS CHASE
         controller.SetMoveInput(
@@ -120,5 +137,32 @@ public class SpinnerAI : MonoBehaviour
         }
 
         return best;
+    }
+
+    Vector3 GetEnemySeparation()
+    {
+        Vector3 separation = Vector3.zero;
+
+        for (int i = 0; i < SpinnerController.AllSpinners.Count; i++)
+        {
+            SpinnerController other = SpinnerController.AllSpinners[i];
+
+            if (other == null || other == controller || !other.IsAlive)
+                continue;
+
+            if (!other.isEnemy)
+                continue;
+
+            Vector3 away = transform.position - other.transform.position;
+            away.y = 0f;
+
+            float distance = away.magnitude;
+            if (distance <= 0.001f || distance > separationRadius)
+                continue;
+
+            separation += away.normalized * (1f - distance / separationRadius);
+        }
+
+        return separation;
     }
 }

@@ -545,7 +545,7 @@ MonoBehaviour:
   attackCooldown: 2
   attackDuration: 0.18
   attackForce: 25
-  attackDamage: 1
+  attackDamage: 3
   attackKnockback: 20
   energyLossOnContact: 2
   contactCooldown: 0.5

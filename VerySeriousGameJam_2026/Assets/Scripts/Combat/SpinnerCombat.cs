@@ -67,6 +67,9 @@ public class SpinnerCombat : MonoBehaviour
         if (!CanDash)
             return;
 
+        if (!SpendPlayerMoveEnergy(controller.spinEnergy != null ? controller.spinEnergy.dashCost : 0f))
+            return;
+
         Vector3 dashDir =
             controller.MoveDirectionWorld.sqrMagnitude > 0.001f
             ? controller.MoveDirectionWorld
@@ -87,6 +90,9 @@ public class SpinnerCombat : MonoBehaviour
     public void TryLungeAttack()
     {
         if (!CanAttack)
+            return;
+
+        if (!SpendPlayerMoveEnergy(controller.spinEnergy != null ? controller.spinEnergy.attackCost : 0f))
             return;
 
         Vector3 attackDir =
@@ -142,6 +148,17 @@ public class SpinnerCombat : MonoBehaviour
 
         if (controller.isEnemy && !other.controller.isEnemy)
             DrainPlayerEnergy(other);
+    }
+
+    bool SpendPlayerMoveEnergy(float amount)
+    {
+        if (controller == null || controller.isEnemy || amount <= 0f)
+            return true;
+
+        if (controller.spinEnergy == null)
+            return true;
+
+        return controller.spinEnergy.SpendEnergy(amount);
     }
 
     void DamageTarget(SpinnerCombat target)

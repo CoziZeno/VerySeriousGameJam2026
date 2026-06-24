@@ -19,7 +19,7 @@ public class PlayerSpinEnergy : MonoBehaviour
     [Header("Drain")]
     public float moveDrainPerSecond = 1f;
     public float dashCost = 20f;
-    public float attackCost = 10f;
+    public float attackCost = 30f;
 
     [Header("Gain")]
     public float hitReward = 10f;
@@ -113,8 +113,10 @@ public class PlayerSpinEnergy : MonoBehaviour
         if (currentEnergy < amount)
             return false;
 
+        StopIntroFill();
         currentEnergy -= amount;
         currentEnergy = Mathf.Clamp(currentEnergy, 0f, maxEnergy);
+        UpdateUI();
 
         return true;
     }
