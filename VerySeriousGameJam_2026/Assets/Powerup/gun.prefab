@@ -127,10 +127,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba21dfb7e317ad24caa81635ea92ed80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GunUpgradeModule
+  bulletPrefab: {fileID: 5118827533145066929, guid: c1c8a0284575d5d4abe602e574ff7dfd, type: 3}
   muzzle: {fileID: 5543499060839310875}
+  bulletSpeed: 22
   fireInterval: 0.45
   range: 12
   damage: 1
+  knockbackForce: 6
+  stunDuration: 0.12
   targetMask:
     serializedVersion: 2
     m_Bits: 128
+  currentAmmo: 12
+  maxAmmo: 30
+  ammoPerShot: 1
+  ammoOnKill: 1
+  fireKey: 32
+  playerOnly: 1

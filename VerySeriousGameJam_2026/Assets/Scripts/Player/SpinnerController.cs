@@ -10,26 +10,25 @@ public class SpinnerController : MonoBehaviour
 
     [Header("Control")]
     public bool usePlayerInput = true;
-    public Transform cameraTransform;
     public SpinnerCombat combat;
+    public KeyCode dashKey = KeyCode.LeftShift;
+    public KeyCode attackKey = KeyCode.Space;
 
     [Header("Movement")]
     public float baseMoveSpeed = 8f;
-    public float acceleration = 28f;
+    public float acceleration = 10f; // Adjusted for ForceMode acceleration
     public float turnSpeed = 14f;
     public float inputDeadZone = 0.08f;
 
     [Tooltip("If assigned, this transform is rotated for the visible spinner spin.")]
     public Transform visualSpinner;
-
-    [Tooltip("Degrees per second for the visible spinner rotation.")]
     public float baseVisualSpinSpeed = 720f;
 
-    [Header("Health / Hit Reaction")]
+    [Header("Health & Defense")]
     public int maxHealth = 3;
     public float hitStunDuration = 0.2f;
-    public float invulnerabilityDuration = 0.35f;
-    [Range(0f, 1f)] public float knockbackResistance = 0.15f;
+    public float invulnerabilityDuration = 0.05f; // Shortened so consecutive hits matter
+    [Range(0f, 1f)] public float knockbackResistance = 0.1f;
 
     [Header("Powerups")]
     public float speedMultiplier = 1f;
@@ -54,16 +53,12 @@ public class SpinnerController : MonoBehaviour
     public event Action<SpinnerController> OnEliminated;
     public event Action<SpinnerController, int> OnHitTaken;
 
-    Rigidbody _rb;
+    public Rigidbody Rb { get; private set; }
 
     Vector2 _externalMoveInput;
     bool _hasExternalMoveInput;
-
     float _stunnedUntil;
     float _invulnerableUntil;
-
-    float _forcedVelocityUntil;
-    Vector3 _forcedHorizontalVelocity;
 
     readonly List<ActivePowerup> _activePowerups = new List<ActivePowerup>();
 
@@ -74,29 +69,18 @@ public class SpinnerController : MonoBehaviour
         public float expiresAt;
     }
 
-    void OnEnable()
-    {
-        if (!AllSpinners.Contains(this))
-            AllSpinners.Add(this);
-    }
-
-    void OnDisable()
-    {
-        AllSpinners.Remove(this);
-    }
+    void OnEnable() { if (!AllSpinners.Contains(this)) AllSpinners.Add(this); }
+    void OnDisable() { AllSpinners.Remove(this); }
 
     void Awake()
     {
-        _rb = GetComponent<Rigidbody>();
-
-        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-        _rb.interpolation = RigidbodyInterpolation.Interpolate;
-        _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        Rb = GetComponent<Rigidbody>();
+        Rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        Rb.interpolation = RigidbodyInterpolation.Interpolate;
+        Rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
         CurrentHealth = maxHealth;
-
-        if (combat == null)
-            combat = GetComponent<SpinnerCombat>();
+        if (combat == null) combat = GetComponent<SpinnerCombat>();
     }
 
     void Update()
@@ -109,17 +93,18 @@ public class SpinnerController : MonoBehaviour
             visualSpinner.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.Self);
         }
 
+        if (!IsAlive) return;
+
         if (usePlayerInput)
         {
             CurrentMoveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
             CurrentMoveInput = Vector2.ClampMagnitude(CurrentMoveInput, 1f);
 
-            // Dash key for the player.
-            if (combat != null && Input.GetKeyDown(KeyCode.LeftShift))
-                combat.TryDash();
-
-            if (combat != null && Input.GetMouseButtonDown(0))
-                combat.TryMeleeAttackAtCursor();
+            if (combat != null)
+            {
+                if (Input.GetKeyDown(dashKey)) combat.TryDash();
+                if (Input.GetKeyDown(attackKey)) combat.TryLungeAttack();
+            }
         }
         else if (_hasExternalMoveInput)
         {
@@ -133,54 +118,32 @@ public class SpinnerController : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!IsAlive)
-            return;
+        if (!IsAlive) return;
 
-        Vector3 currentVelocity = _rb.linearVelocity;
-        Vector3 currentHorizontal = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
-
-        bool forcedMoveActive = Time.time < _forcedVelocityUntil;
-        bool controlLocked = IsStunned;
-
-        Vector3 targetHorizontal = currentHorizontal;
-
-        if (forcedMoveActive)
+        // Calculate intended direction based on pure world axes (no camera needed)
+        if (CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
         {
-            targetHorizontal = _forcedHorizontalVelocity;
-        }
-        else if (!controlLocked && CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
-        {
-            Vector3 forward = Vector3.forward;
-            Vector3 right = Vector3.right;
-
-            if (cameraTransform != null)
-            {
-                forward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
-                right = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
-            }
-
-            MoveDirectionWorld = (forward * CurrentMoveInput.y + right * CurrentMoveInput.x).normalized;
-            targetHorizontal = MoveDirectionWorld * FinalMoveSpeed;
+            MoveDirectionWorld = new Vector3(CurrentMoveInput.x, 0f, CurrentMoveInput.y).normalized;
         }
         else
         {
-            if (!forcedMoveActive)
-            {
-                MoveDirectionWorld = Vector3.zero;
-
-                if (!controlLocked)
-                    targetHorizontal = Vector3.MoveTowards(currentHorizontal, Vector3.zero, acceleration * Time.fixedDeltaTime);
-                else
-                    targetHorizontal = Vector3.zero;
-            }
+            MoveDirectionWorld = Vector3.zero;
         }
 
-        Vector3 newHorizontal = forcedMoveActive
-            ? targetHorizontal
-            : Vector3.MoveTowards(currentHorizontal, targetHorizontal, acceleration * Time.fixedDeltaTime);
+        // Apply physics-friendly movement ONLY if not stunned
+        if (!IsStunned)
+        {
+            Vector3 currentVelocity = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
+            Vector3 desiredVelocity = MoveDirectionWorld * FinalMoveSpeed;
 
-        _rb.linearVelocity = new Vector3(newHorizontal.x, currentVelocity.y, newHorizontal.z);
+            // Calculate how much force is needed to reach the desired velocity
+            Vector3 velocityDifference = desiredVelocity - currentVelocity;
 
+            // Apply it as a force, letting Unity handle momentum and deflections
+            Rb.AddForce(velocityDifference * acceleration, ForceMode.Acceleration);
+        }
+
+        // Smooth rotation towards movement direction
         if (MoveDirectionWorld.sqrMagnitude > 0.001f)
         {
             Quaternion targetRot = Quaternion.LookRotation(MoveDirectionWorld, Vector3.up);
@@ -211,12 +174,6 @@ public class SpinnerController : MonoBehaviour
         _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + duration);
     }
 
-    public void ApplyForcedHorizontalVelocity(Vector3 worldHorizontalVelocity, float duration)
-    {
-        _forcedHorizontalVelocity = Vector3.ProjectOnPlane(worldHorizontalVelocity, Vector3.up);
-        _forcedVelocityUntil = Mathf.Max(_forcedVelocityUntil, Time.time + duration);
-    }
-
     public void GrantInvulnerability(float duration)
     {
         _invulnerableUntil = Mathf.Max(_invulnerableUntil, Time.time + duration);
@@ -224,65 +181,41 @@ public class SpinnerController : MonoBehaviour
 
     public void ApplyPowerup(PowerupData data)
     {
-        if (data == null)
-            return;
+        if (data == null) return;
 
-        switch (data.type)
-        {
-            case PowerupType.SpeedMultiplier:
-            case PowerupType.DamageMultiplier:
-            case PowerupType.RadiusMultiplier:
-            case PowerupType.CooldownMultiplier:
-            case PowerupType.SpinMultiplier:
-                _activePowerups.Add(new ActivePowerup
-                {
-                    data = data,
-                    expiresAt = data.duration > 0f ? Time.time + data.duration : float.PositiveInfinity
-                });
-                break;
-
-            case PowerupType.ShieldCharge:
-                shieldCharges += Mathf.Max(1, Mathf.RoundToInt(data.magnitude));
-                break;
-
-            case PowerupType.Heal:
-                Heal(Mathf.Max(1, Mathf.RoundToInt(data.magnitude)));
-                break;
-        }
+        if (data.type == PowerupType.ShieldCharge)
+            shieldCharges += Mathf.Max(1, Mathf.RoundToInt(data.magnitude));
+        else if (data.type == PowerupType.Heal)
+            Heal(Mathf.Max(1, Mathf.RoundToInt(data.magnitude)));
+        else
+            _activePowerups.Add(new ActivePowerup { data = data, expiresAt = data.duration > 0f ? Time.time + data.duration : float.PositiveInfinity });
     }
 
     public void Heal(int amount)
     {
-        if (!IsAlive)
-            return;
-
+        if (!IsAlive) return;
         CurrentHealth = Mathf.Clamp(CurrentHealth + amount, 0, maxHealth);
     }
 
-    public void TakeHit(int damage, Vector3 hitDirection, float knockbackForce, float stunDuration)
+    public void TakeHit(int damage, Vector3 pushDir, float knockbackForce, float stunDuration)
     {
-        if (!IsAlive)
-            return;
+        if (!IsAlive) return;
 
         if (IsInvulnerable)
         {
-            if (shieldCharges > 0)
-                shieldCharges--;
-
+            if (shieldCharges > 0) shieldCharges--;
             return;
         }
 
         CurrentHealth -= Mathf.Max(1, damage);
         OnHitTaken?.Invoke(this, damage);
 
-        Vector3 pushDir = Vector3.ProjectOnPlane(hitDirection, Vector3.up).normalized;
-        if (pushDir.sqrMagnitude < 0.0001f)
-            pushDir = -transform.forward;
-
         float resistance = Mathf.Clamp01(knockbackResistance);
-        Vector3 knockbackVelocity = pushDir * knockbackForce * (1f - resistance);
+        float finalKnockback = knockbackForce * (1f - resistance);
 
-        ApplyForcedHorizontalVelocity(knockbackVelocity, Mathf.Max(stunDuration, 0.08f));
+        // Actual physics knockback instead of overriding velocity
+        Rb.AddForce(pushDir * finalKnockback, ForceMode.Impulse);
+
         LockControl(stunDuration);
         GrantInvulnerability(invulnerabilityDuration);
 
@@ -296,23 +229,15 @@ public class SpinnerController : MonoBehaviour
 
     System.Collections.IEnumerator EliminateRoutine()
     {
-        if (eliminateDelay > 0f)
-            yield return new WaitForSeconds(eliminateDelay);
-
-        if (disableOnEliminate)
-            gameObject.SetActive(false);
+        if (eliminateDelay > 0f) yield return new WaitForSeconds(eliminateDelay);
+        if (disableOnEliminate) gameObject.SetActive(false);
     }
 
     void UpdatePowerups()
     {
-        if (_activePowerups.Count == 0)
-            return;
+        if (_activePowerups.Count == 0) return;
 
-        float speed = 1f;
-        float damage = 1f;
-        float radius = 1f;
-        float cooldown = 1f;
-        float spin = 1f;
+        float speed = 1f, damage = 1f, radius = 1f, cooldown = 1f, spin = 1f;
 
         for (int i = _activePowerups.Count - 1; i >= 0; i--)
         {
@@ -323,33 +248,19 @@ public class SpinnerController : MonoBehaviour
                 continue;
             }
 
-            if (p.data == null)
-                continue;
+            if (p.data == null) continue;
 
             switch (p.data.type)
             {
-                case PowerupType.SpeedMultiplier:
-                    speed *= p.data.magnitude;
-                    break;
-                case PowerupType.DamageMultiplier:
-                    damage *= p.data.magnitude;
-                    break;
-                case PowerupType.RadiusMultiplier:
-                    radius *= p.data.magnitude;
-                    break;
-                case PowerupType.CooldownMultiplier:
-                    cooldown *= p.data.magnitude;
-                    break;
-                case PowerupType.SpinMultiplier:
-                    spin *= p.data.magnitude;
-                    break;
+                case PowerupType.SpeedMultiplier: speed *= p.data.magnitude; break;
+                case PowerupType.DamageMultiplier: damage *= p.data.magnitude; break;
+                case PowerupType.RadiusMultiplier: radius *= p.data.magnitude; break;
+                case PowerupType.CooldownMultiplier: cooldown *= p.data.magnitude; break;
+                case PowerupType.SpinMultiplier: spin *= p.data.magnitude; break;
             }
         }
 
-        speedMultiplier = speed;
-        damageMultiplier = damage;
-        radiusMultiplier = radius;
-        cooldownMultiplier = cooldown;
-        spinMultiplier = spin;
+        speedMultiplier = speed; damageMultiplier = damage; radiusMultiplier = radius;
+        cooldownMultiplier = cooldown; spinMultiplier = spin;
     }
 }

@@ -8,25 +8,21 @@ public class SpinnerAI : MonoBehaviour
     public SpinnerController controller;
     public SpinnerCombat combat;
 
-    [Header("AI")]
-    public float senseRadius = 20f;
-    public float preferredDistance = 2.5f;
-    public float retargetInterval = 0.35f;
-    public float strafeAmount = 0.25f;
+    [Header("AI Senses")]
+    public float senseRadius = 25f;
+    public float preferredDistance = 1.5f;
+    public float orbitChangeInterval = 2.5f;
 
-    [Header("Dash Behavior")]
-    public float dashDecisionChance = 0.02f;
-    public float dashRange = 4f;
-    public float faceThreshold = 0.45f;
+    [Header("Aggression")]
+    public float attackRange = 4.5f;
+    public float faceThreshold = 0.8f;
 
-    SpinnerController _target;
-    float _nextRetargetTime;
+    private SpinnerController _target;
+    private float _nextRetargetTime;
 
-    void Reset()
-    {
-        controller = GetComponent<SpinnerController>();
-        combat = GetComponent<SpinnerCombat>();
-    }
+    private float _currentOrbitDirection = 1f;
+    private float _nextOrbitChangeTime;
+    private float _nextActionAttemptTime;
 
     void Awake()
     {
@@ -38,13 +34,12 @@ public class SpinnerAI : MonoBehaviour
 
     void Update()
     {
-        if (controller == null || !controller.IsAlive)
-            return;
+        if (controller == null || !controller.IsAlive) return;
 
         if (Time.time >= _nextRetargetTime || _target == null || !_target.IsAlive)
         {
             _target = FindNearestTarget();
-            _nextRetargetTime = Time.time + retargetInterval;
+            _nextRetargetTime = Time.time + 0.5f;
         }
 
         if (_target == null)
@@ -55,33 +50,42 @@ public class SpinnerAI : MonoBehaviour
 
         Vector3 toTarget = _target.transform.position - transform.position;
         toTarget.y = 0f;
-
         float distance = toTarget.magnitude;
-        Vector3 dir = toTarget.sqrMagnitude > 0.001f ? toTarget.normalized : transform.forward;
+        Vector3 dirToTarget = toTarget.sqrMagnitude > 0.001f ? toTarget.normalized : transform.forward;
 
-        if (distance > preferredDistance)
+        if (Time.time > _nextOrbitChangeTime)
         {
-            Vector3 strafe = Vector3.Cross(Vector3.up, dir) * RandomSign() * strafeAmount;
-            Vector3 move = (dir + strafe).normalized;
-            controller.SetMoveInput(WorldToInput(move));
+            _currentOrbitDirection = Random.value > 0.5f ? 1f : -1f;
+            _nextOrbitChangeTime = Time.time + orbitChangeInterval * Random.Range(0.8f, 1.2f);
         }
-        else
+
+        Vector3 orbitDir = Vector3.Cross(Vector3.up, dirToTarget) * _currentOrbitDirection;
+        float distanceFactor = Mathf.Clamp01((distance - preferredDistance) / 3f);
+        Vector3 moveDir = Vector3.Lerp(orbitDir, dirToTarget, distanceFactor).normalized;
+
+        // Supply World X and Z as Input since the Controller no longer uses Cameras
+        controller.SetMoveInput(new Vector2(moveDir.x, moveDir.z));
+
+        float facing = Vector3.Dot(transform.forward, dirToTarget);
+
+        // Attack logic based purely on distance and facing direction
+        if (distance <= attackRange && facing > faceThreshold)
         {
-            controller.SetMoveInput(Vector2.zero);
-
-            float facing = Vector3.Dot(transform.forward, dir);
-
-            if (distance <= dashRange && facing > faceThreshold && combat.CanDash && Random.value < dashDecisionChance)
+            if (Time.time > _nextActionAttemptTime)
             {
-                combat.TryDash();
+                if (Random.value > 0.5f && combat.CanLunge)
+                    combat.TryLungeAttack();
+                else if (combat.CanDash)
+                    combat.TryDash();
+
+                _nextActionAttemptTime = Time.time + Random.Range(0.5f, 1.5f);
             }
         }
     }
 
     void OnDisable()
     {
-        if (controller != null)
-            controller.ClearMoveInput();
+        if (controller != null) controller.ClearMoveInput();
     }
 
     SpinnerController FindNearestTarget()
@@ -92,8 +96,7 @@ public class SpinnerAI : MonoBehaviour
         for (int i = 0; i < SpinnerController.AllSpinners.Count; i++)
         {
             SpinnerController other = SpinnerController.AllSpinners[i];
-            if (other == null || other == controller || !other.IsAlive)
-                continue;
+            if (other == null || other == controller || !other.IsAlive) continue;
 
             float dist = Vector3.Distance(transform.position, other.transform.position);
             if (dist < bestDist)
@@ -102,29 +105,6 @@ public class SpinnerAI : MonoBehaviour
                 best = other;
             }
         }
-
         return best;
-    }
-
-    Vector2 WorldToInput(Vector3 worldDir)
-    {
-        Vector3 forward = Vector3.forward;
-        Vector3 right = Vector3.right;
-
-        if (controller.cameraTransform != null)
-        {
-            forward = Vector3.ProjectOnPlane(controller.cameraTransform.forward, Vector3.up).normalized;
-            right = Vector3.ProjectOnPlane(controller.cameraTransform.right, Vector3.up).normalized;
-        }
-
-        float x = Vector3.Dot(worldDir, right);
-        float y = Vector3.Dot(worldDir, forward);
-
-        return Vector2.ClampMagnitude(new Vector2(x, y), 1f);
-    }
-
-    float RandomSign()
-    {
-        return Random.value < 0.5f ? -1f : 1f;
     }
 }
