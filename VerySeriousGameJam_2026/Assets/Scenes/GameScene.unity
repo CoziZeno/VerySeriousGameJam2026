@@ -8970,7 +8970,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4380249179378660977, guid: 73f901090dd89d541a2a36487c027b9e, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7448139482506859376, guid: 73f901090dd89d541a2a36487c027b9e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9920,7 +9920,7 @@ PrefabInstance:
     - target: {fileID: 5143125244560676445, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
       propertyPath: deathVFX
       value: 
-      objectReference: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
+      objectReference: {fileID: 100004, guid: 7867af58a6ec48846ae807eb4022fbaa, type: 3}
     - target: {fileID: 5143125244560676445, guid: 97838dba35c2d874b8f5db901fdb1ccf, type: 3}
       propertyPath: vfxFallbackLifetime
       value: 1.6
