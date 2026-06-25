@@ -606,8 +606,8 @@ MonoBehaviour:
   hitShakeDuration: 0.26
   shakeWhenThisSpinnerDies: 1
   onlyIfEnemy: 1
-  eliminationShakeStrength: 0.67
-  eliminationShakeDuration: 0.45
+  eliminationShakeStrength: 0.6
+  eliminationShakeDuration: 0.3
 --- !u!1 &4848716804595286350
 GameObject:
   m_ObjectHideFlags: 0

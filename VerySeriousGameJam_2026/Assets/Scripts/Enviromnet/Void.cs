@@ -6,7 +6,7 @@ public class KillZone : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        SpinnerController spinner = other.GetComponent<SpinnerController>();
+        SpinnerController spinner = other.GetComponentInParent<SpinnerController>();
 
         if (spinner == null)
             return;

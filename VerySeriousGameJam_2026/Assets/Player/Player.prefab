@@ -210,6 +210,7 @@ GameObject:
   - component: {fileID: 1102349140296105909}
   - component: {fileID: 3234771455930800751}
   - component: {fileID: 5143125244560676445}
+  - component: {fileID: 1668043199560862816}
   m_Layer: 6
   m_Name: Player
   m_TagString: Untagged
@@ -270,7 +271,7 @@ MonoBehaviour:
   cooldownMultiplier: 1
   spinMultiplier: 1
   shieldCharges: 0
-  disableOnEliminate: 1
+  destroyOnEliminate: 1
   eliminateDelay: 0.6
 --- !u!54 &3808531775991416284
 Rigidbody:
@@ -315,12 +316,12 @@ MonoBehaviour:
   dashDuration: 0.38
   dashCooldown: 0.65
   dashForce: 12
-  attackCooldown: 2
+  attackCooldown: 0.5
   attackDuration: 0.18
-  attackForce: 25
-  attackDamage: 3
-  attackKnockback: 20
-  energyLossOnContact: 50
+  attackForce: 30
+  attackDamage: 2
+  attackKnockback: 30
+  energyLossOnContact: 2
   contactCooldown: 0.5
 --- !u!114 &1102349140296105909
 MonoBehaviour:
@@ -363,9 +364,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06a67620c17f5194a9090b0bae0a9b4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerHitVFX
-  hitVFX: {fileID: 1462327970484030, guid: f01c1eba69de19e44b04d8d651aaac37, type: 3}
-  deathVFX: {fileID: 100002, guid: e9391f622091e1449bdef4ef15af4948, type: 3}
+  hitVFX: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
+  deathVFX: {fileID: 100004, guid: 7867af58a6ec48846ae807eb4022fbaa, type: 3}
   vfxOffset: {x: 0, y: 0.5, z: 0}
+  makeVFXFollowEnemy: 1
+  vfxFallbackLifetime: 1.6
+--- !u!114 &1668043199560862816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1675992043925896368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34b237d4ae651bb46b0fe87a7c7bcd60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpinnerCameraShakeEvents
+  shakeWhenThisSpinnerGetsHit: 1
+  onlyIfPlayer: 1
+  hitShakeStrength: 0.48
+  hitShakeDuration: 0.26
+  shakeWhenThisSpinnerDies: 1
+  onlyIfEnemy: 1
+  eliminationShakeStrength: 0.16
+  eliminationShakeDuration: 0.8
 --- !u!1 &4251506512512122896
 GameObject:
   m_ObjectHideFlags: 0
