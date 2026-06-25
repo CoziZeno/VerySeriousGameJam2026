@@ -20,6 +20,7 @@ public class SpinnerController : MonoBehaviour
     public bool movementLocked;
     public KeyCode dashKey = KeyCode.LeftShift;
     public KeyCode attackKey = KeyCode.Space;
+    public KeyCode sweepKey = KeyCode.Q;
 
     [Header("Movement")]
     public float baseMoveSpeed = 8f;
@@ -131,6 +132,7 @@ public class SpinnerController : MonoBehaviour
             {
                 if (Input.GetKeyDown(dashKey)) combat.TryDash();
                 if (Input.GetKeyDown(attackKey)) combat.TryLungeAttack();
+                if (Input.GetKeyDown(sweepKey)) combat.TrySweepAttack();
             }
         }
         else if (_hasExternalMoveInput)
@@ -294,6 +296,17 @@ public class SpinnerController : MonoBehaviour
     {
         if (!IsAlive) return;
         CurrentHealth = Mathf.Clamp(CurrentHealth + amount, 0, maxHealth);
+    }
+
+    public void AddMaxHealth(int amount, bool healAddedHealth)
+    {
+        int oldMaxHealth = maxHealth;
+        maxHealth = Mathf.Max(1, maxHealth + amount);
+
+        if (healAddedHealth && maxHealth > oldMaxHealth)
+            CurrentHealth += maxHealth - oldMaxHealth;
+
+        CurrentHealth = Mathf.Clamp(CurrentHealth, 0, maxHealth);
     }
 
     public void TakeHit(int damage, Vector3 pushDir, float knockbackForce, float stunDuration)

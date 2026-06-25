@@ -21,6 +21,21 @@ public class SpinnerCombat : MonoBehaviour
     public int attackDamage = 3;
     public float attackKnockback = 20f;
 
+    [Header("Sweep Attack")]
+    public SweepSlashProjectile sweepSlashPrefab;
+    public Transform sweepSpawnPoint;
+    public float sweepCooldown = 1.2f;
+    public float sweepSpeed = 18f;
+    public float sweepRange = 10f;
+    public int sweepDamage = 2;
+    public float sweepKnockback = 9f;
+    public float sweepStunDuration = 0.15f;
+    public Vector3 sweepSlashScale = new Vector3(2.2f, 0.08f, 0.45f);
+    public LayerMask sweepTargetMask = ~0;
+    public GameObject sweepSlashVFXPrefab;
+    public bool addFallbackSweepTrail = true;
+    public bool sweepUnlocked;
+
     [Header("Energy Drain")]
     public float energyLossOnContact = 10f;
     public float contactCooldown = 0.5f;
@@ -28,6 +43,13 @@ public class SpinnerCombat : MonoBehaviour
     public bool IsDashing => Time.time < _dashUntil;
     public bool IsAttacking => Time.time < _attackUntil;
     public bool CanLunge => CanAttack;
+    public bool CanSweep =>
+        controller != null &&
+        controller.IsAlive &&
+        sweepUnlocked &&
+        Time.time >= _nextSweepTime &&
+        !IsDashing &&
+        !IsAttacking;
 
     public event Action<SpinnerCombat, int, bool> OnDealtDamage;
 
@@ -36,6 +58,7 @@ public class SpinnerCombat : MonoBehaviour
 
     float _nextDashTime;
     float _nextAttackTime;
+    float _nextSweepTime;
 
     readonly Dictionary<SpinnerCombat, float> _contactTimers =
         new Dictionary<SpinnerCombat, float>();
@@ -113,6 +136,47 @@ public class SpinnerCombat : MonoBehaviour
         controller.LockControl(attackDuration);
     }
 
+    public void TrySweepAttack()
+    {
+        if (!CanSweep)
+            return;
+
+        Vector3 sweepDir =
+            controller.MoveDirectionWorld.sqrMagnitude > 0.001f
+            ? controller.MoveDirectionWorld
+            : transform.forward;
+
+        sweepDir.y = 0f;
+        if (sweepDir.sqrMagnitude < 0.001f)
+            sweepDir = transform.forward;
+
+        sweepDir.Normalize();
+
+        Vector3 spawnPos = sweepSpawnPoint != null
+            ? sweepSpawnPoint.position
+            : transform.position + sweepDir * 1.1f + Vector3.up * 0.25f;
+
+        Quaternion spawnRot = Quaternion.LookRotation(sweepDir, Vector3.up);
+        SweepSlashProjectile slash = CreateSweepSlash(spawnPos, spawnRot);
+
+        slash.Initialize(
+            ownerCombat: this,
+            direction: sweepDir,
+            speed: sweepSpeed,
+            range: sweepRange,
+            damage: Mathf.Max(1, Mathf.RoundToInt(sweepDamage * controller.FinalDamage)),
+            knockbackForce: sweepKnockback,
+            stunDuration: sweepStunDuration,
+            targetMask: sweepTargetMask);
+
+        _nextSweepTime = Time.time + sweepCooldown * controller.FinalCooldownMultiplier;
+    }
+
+    public void UnlockSweepAttack()
+    {
+        sweepUnlocked = true;
+    }
+
     void OnCollisionEnter(Collision collision)
     {
         SpinnerCombat other =
@@ -159,6 +223,101 @@ public class SpinnerCombat : MonoBehaviour
             return true;
 
         return controller.spinEnergy.SpendEnergy(amount);
+    }
+
+    SweepSlashProjectile CreateSweepSlash(Vector3 spawnPos, Quaternion spawnRot)
+    {
+        if (sweepSlashPrefab != null)
+            return Instantiate(sweepSlashPrefab, spawnPos, spawnRot);
+
+        GameObject slashObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        slashObject.name = "Sweep Slash";
+        slashObject.transform.SetPositionAndRotation(spawnPos, spawnRot);
+        slashObject.transform.localScale = sweepSlashScale;
+
+        Renderer slashRenderer = slashObject.GetComponent<Renderer>();
+        if (slashRenderer != null)
+            slashRenderer.material.color = new Color(0.25f, 0.9f, 1f, 0.85f);
+
+        AddSweepSlashVFX(slashObject);
+
+        return slashObject.AddComponent<SweepSlashProjectile>();
+    }
+
+    void AddSweepSlashVFX(GameObject slashObject)
+    {
+        if (slashObject == null)
+            return;
+
+        if (sweepSlashVFXPrefab != null)
+        {
+            GameObject vfx = Instantiate(sweepSlashVFXPrefab, slashObject.transform);
+            vfx.transform.localPosition = Vector3.zero;
+            vfx.transform.localRotation = Quaternion.identity;
+        }
+
+        if (!addFallbackSweepTrail)
+            return;
+
+        TrailRenderer trail = slashObject.AddComponent<TrailRenderer>();
+        trail.time = 0.18f;
+        trail.minVertexDistance = 0.03f;
+        trail.widthMultiplier = 1.15f;
+        trail.alignment = LineAlignment.TransformZ;
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[]
+            {
+                new GradientColorKey(new Color(0.2f, 1f, 1f), 0f),
+                new GradientColorKey(Color.white, 0.35f),
+                new GradientColorKey(new Color(0.05f, 0.35f, 1f), 1f)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0.9f, 0f),
+                new GradientAlphaKey(0.55f, 0.55f),
+                new GradientAlphaKey(0f, 1f)
+            });
+        trail.colorGradient = gradient;
+
+        Shader shader = Shader.Find("Sprites/Default");
+        if (shader != null)
+            trail.material = new Material(shader);
+    }
+
+    public bool TryDamageSweepTarget(
+        SpinnerCombat target,
+        int damage,
+        Vector3 pushDirection,
+        float knockbackForce,
+        float stunDuration)
+    {
+        if (controller == null || target == null || target.controller == null)
+            return false;
+
+        if (target == this || !target.controller.IsAlive)
+            return false;
+
+        if (controller.isEnemy == target.controller.isEnemy)
+            return false;
+
+        pushDirection.y = 0f;
+        if (pushDirection.sqrMagnitude < 0.001f)
+            pushDirection = transform.forward;
+
+        target.controller.TakeHit(
+            damage,
+            pushDirection.normalized,
+            knockbackForce,
+            stunDuration);
+
+        OnDealtDamage?.Invoke(
+            target,
+            damage,
+            true);
+
+        return true;
     }
 
     void DamageTarget(SpinnerCombat target)
