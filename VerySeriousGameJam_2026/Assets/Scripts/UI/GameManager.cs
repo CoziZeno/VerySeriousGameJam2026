@@ -7,6 +7,7 @@ public class GameManager : MonoBehaviour
     [Header("Scenes")]
     public string gameSceneName = "GameScene";
     public string menuSceneName = "MenuScene";
+    public string StoryModeSceneName = "Level0";
 
     public void StartButton()
     {
@@ -25,4 +26,11 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         SceneManager.LoadScene(menuSceneName);
     }
+
+    public void StroyMode()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(StoryModeSceneName);
+    }
+
 }
