@@ -474,9 +474,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerController
   usePlayerInput: 0
+  invertControls: 0
   combat: {fileID: 0}
   spinEnergy: {fileID: 0}
   isEnemy: 1
+  movementLocked: 0
   dashKey: 304
   attackKey: 32
   baseMoveSpeed: 8
@@ -492,6 +494,7 @@ MonoBehaviour:
   hitFlashRenderers: []
   hitFlashDuration: 0.12
   hitFlashColor: {r: 1, g: 0, b: 0, a: 1}
+  enemyImpactFlashColor: {r: 1, g: 1, b: 1, a: 1}
   speedMultiplier: 1
   damageMultiplier: 1
   radiusMultiplier: 1
@@ -583,8 +586,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06a67620c17f5194a9090b0bae0a9b4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyVFX
-  hitVFX: {fileID: 100000, guid: f06e78284f831ae469c74624ab5d513b, type: 3}
-  deathVFX: {fileID: 1995403933065894, guid: 4961a16ba01e09547be3e1c9d16d5ad0, type: 3}
+  hitVFX: {fileID: 100000, guid: 979632a27455af442bd2d8f36eb0ffce, type: 3}
+  deathVFX: {fileID: 1134129239631916, guid: 7e48ba6b1b968764490bbc70b66e3fe1, type: 3}
   vfxOffset: {x: 0, y: 0.5, z: 0}
   makeVFXFollowEnemy: 1
   vfxFallbackLifetime: 1.6

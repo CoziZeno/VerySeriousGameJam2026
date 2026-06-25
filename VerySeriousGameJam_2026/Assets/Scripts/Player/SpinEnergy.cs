@@ -24,6 +24,11 @@ public class PlayerSpinEnergy : MonoBehaviour
     [Header("Gain")]
     public float hitReward = 10f;
 
+    [Header("Focus")]
+    public float focusFullChargeDuration = 5f;
+    public GameObject focusVFX;
+    public Vector3 focusVFXOffset = new Vector3(0f, 0.4f, 0f);
+
     [Header("Intro")]
     public float introFillDuration = 3f;
 
@@ -32,6 +37,7 @@ public class PlayerSpinEnergy : MonoBehaviour
     Coroutine _introFillRoutine;
     bool _restorePlayerInputAfterIntro;
     bool _inputLockedForIntro;
+    GameObject _activeFocusVFX;
 
     void Awake()
     {
@@ -40,6 +46,9 @@ public class PlayerSpinEnergy : MonoBehaviour
 
         if (combat == null)
             combat = GetComponent<SpinnerCombat>();
+
+        if (focusVFX != null)
+            focusVFX.SetActive(false);
     }
 
     void OnEnable()
@@ -53,6 +62,7 @@ public class PlayerSpinEnergy : MonoBehaviour
         if (combat != null)
             combat.OnDealtDamage -= HandleDamageDealt;
 
+        StopFocusVFX();
         RestorePlayerInputAfterIntro();
     }
 
@@ -89,8 +99,30 @@ public class PlayerSpinEnergy : MonoBehaviour
 
     void Update()
     {
+        UpdateFocus();
         DrainMovementEnergy();
         UpdateUI();
+    }
+
+    void UpdateFocus()
+    {
+        if (controller == null || controller.isEnemy || _introFillRoutine != null)
+        {
+            StopFocusVFX();
+            return;
+        }
+
+        if (Input.GetMouseButton(1))
+        {
+            controller.SetMovementLocked(true);
+            float chargePerSecond = maxEnergy / Mathf.Max(0.01f, focusFullChargeDuration);
+            AddEnergy(chargePerSecond * Time.deltaTime);
+            StartFocusVFX();
+        }
+        else
+        {
+            StopFocusVFX();
+        }
     }
 
     void DrainMovementEnergy()
@@ -200,5 +232,41 @@ public class PlayerSpinEnergy : MonoBehaviour
 
         controller.usePlayerInput = _restorePlayerInputAfterIntro;
         _inputLockedForIntro = false;
+    }
+
+    void StartFocusVFX()
+    {
+        if (focusVFX == null || _activeFocusVFX != null)
+            return;
+
+        _activeFocusVFX = focusVFX;
+        _activeFocusVFX.transform.localPosition = focusVFXOffset;
+        _activeFocusVFX.SetActive(true);
+
+        ParticleSystem[] particles = _activeFocusVFX.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < particles.Length; i++)
+        {
+            if (particles[i] != null)
+                particles[i].Play(true);
+        }
+    }
+
+    void StopFocusVFX()
+    {
+        if (controller != null)
+            controller.SetMovementLocked(false);
+
+        if (_activeFocusVFX == null)
+            return;
+
+        ParticleSystem[] particles = _activeFocusVFX.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < particles.Length; i++)
+        {
+            if (particles[i] != null)
+                particles[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+
+        _activeFocusVFX.SetActive(false);
+        _activeFocusVFX = null;
     }
 }

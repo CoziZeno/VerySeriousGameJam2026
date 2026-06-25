@@ -10,9 +10,14 @@ public class SpinnerController : MonoBehaviour
 
     [Header("Control")]
     public bool usePlayerInput = true;
+    public bool invertControls;
+    public bool useCameraRelativeMovement = true;
+    public bool swapMoveAxes;
+    public Camera movementCamera;
     public SpinnerCombat combat;
     public PlayerSpinEnergy spinEnergy;
     public bool isEnemy;
+    public bool movementLocked;
     public KeyCode dashKey = KeyCode.LeftShift;
     public KeyCode attackKey = KeyCode.Space;
 
@@ -34,8 +39,9 @@ public class SpinnerController : MonoBehaviour
 
     [Header("Hit Flash")]
     public Renderer[] hitFlashRenderers;
-    public float hitFlashDuration = 0.12f;
+    public float hitFlashDuration = 0.5f;
     public Color hitFlashColor = Color.red;
+    public Color enemyImpactFlashColor = Color.white;
 
     [Header("Powerups")]
     public float speedMultiplier = 1f;
@@ -88,6 +94,9 @@ public class SpinnerController : MonoBehaviour
         Rb.interpolation = RigidbodyInterpolation.Interpolate;
         Rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
+        if (movementCamera == null)
+            movementCamera = Camera.main;
+
         CurrentHealth = maxHealth;
         if (combat == null) combat = GetComponent<SpinnerCombat>();
 
@@ -116,8 +125,7 @@ public class SpinnerController : MonoBehaviour
 
         if (usePlayerInput)
         {
-            CurrentMoveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-            CurrentMoveInput = Vector2.ClampMagnitude(CurrentMoveInput, 1f);
+            CurrentMoveInput = movementLocked ? Vector2.zero : ReadMoveInput();
 
             if (combat != null)
             {
@@ -127,7 +135,7 @@ public class SpinnerController : MonoBehaviour
         }
         else if (_hasExternalMoveInput)
         {
-            CurrentMoveInput = Vector2.ClampMagnitude(_externalMoveInput, 1f);
+            CurrentMoveInput = movementLocked ? Vector2.zero : ApplyInputModifiers(_externalMoveInput);
         }
         else
         {
@@ -139,10 +147,10 @@ public class SpinnerController : MonoBehaviour
     {
         if (!IsAlive) return;
 
-        // Calculate intended direction based on pure world axes (no camera needed)
+        // Convert input into world movement, optionally relative to the camera view.
         if (CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
         {
-            MoveDirectionWorld = new Vector3(CurrentMoveInput.x, 0f, CurrentMoveInput.y).normalized;
+            MoveDirectionWorld = GetMoveDirectionWorld(CurrentMoveInput);
         }
         else
         {
@@ -202,6 +210,58 @@ public class SpinnerController : MonoBehaviour
     public void LockControl(float duration)
     {
         _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + duration);
+    }
+
+    public void SetMovementLocked(bool locked)
+    {
+        movementLocked = locked;
+
+        if (movementLocked)
+        {
+            CurrentMoveInput = Vector2.zero;
+
+            if (Rb != null)
+                Rb.linearVelocity = new Vector3(0f, Rb.linearVelocity.y, 0f);
+        }
+    }
+
+    Vector2 ReadMoveInput()
+    {
+        Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        return ApplyInputModifiers(input);
+    }
+
+    Vector2 ApplyInputModifiers(Vector2 input)
+    {
+        if (swapMoveAxes)
+            input = new Vector2(input.y, input.x);
+
+        if (invertControls)
+            input = -input;
+
+        return Vector2.ClampMagnitude(input, 1f);
+    }
+
+    Vector3 GetMoveDirectionWorld(Vector2 input)
+    {
+        if (!useCameraRelativeMovement)
+            return new Vector3(input.x, 0f, input.y).normalized;
+
+        Camera cam = movementCamera != null ? movementCamera : Camera.main;
+        if (cam == null)
+            return new Vector3(input.x, 0f, input.y).normalized;
+
+        Vector3 camRight = cam.transform.right;
+        camRight.y = 0f;
+        camRight.Normalize();
+
+        Vector3 camForward = cam.transform.forward;
+        camForward.y = 0f;
+        camForward.Normalize();
+
+        Vector3 move = camRight * input.x + camForward * input.y;
+        move.y = 0f;
+        return move.sqrMagnitude > 0.0001f ? move.normalized : Vector3.zero;
     }
 
     public void GrantInvulnerability(float duration)
@@ -303,10 +363,25 @@ public class SpinnerController : MonoBehaviour
 
     System.Collections.IEnumerator HitFlashRoutine()
     {
-        SetHitFlashColor(hitFlashColor);
-        yield return new WaitForSeconds(hitFlashDuration);
+        if (isEnemy)
+            yield return StartCoroutine(EnemyImpactFlashRoutine());
+        else
+            yield return StartCoroutine(SingleColorFlashRoutine());
+
         RestoreHitFlashColors();
         _hitFlashRoutine = null;
+    }
+
+    System.Collections.IEnumerator SingleColorFlashRoutine()
+    {
+        SetHitFlashColor(hitFlashColor);
+        yield return new WaitForSeconds(hitFlashDuration);
+    }
+
+    System.Collections.IEnumerator EnemyImpactFlashRoutine()
+    {
+        SetHitFlashColor(enemyImpactFlashColor);
+        yield return new WaitForSeconds(hitFlashDuration);
     }
 
     void SetHitFlashColor(Color color)

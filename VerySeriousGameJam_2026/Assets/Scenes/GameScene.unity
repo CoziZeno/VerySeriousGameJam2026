@@ -280,7 +280,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   gameSceneName: GameScene
-  menuSceneName: Zeno's PlayGround
+  menuSceneName: Menu
 --- !u!1 &34074376
 GameObject:
   m_ObjectHideFlags: 0
@@ -2894,6 +2894,9 @@ MonoBehaviour:
   dashCost: 3
   attackCost: 5
   hitReward: 10
+  focusFullChargeDuration: 5
+  focusVFX: {fileID: 0}
+  focusVFXOffset: {x: 0, y: 0.4, z: 0}
   introFillDuration: 1.5
 --- !u!114 &417170964
 MonoBehaviour:
@@ -2931,9 +2934,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpinnerController
   usePlayerInput: 1
+  invertControls: 0
   combat: {fileID: 0}
   spinEnergy: {fileID: 0}
   isEnemy: 0
+  movementLocked: 0
   dashKey: 304
   attackKey: 32
   baseMoveSpeed: 8
@@ -2949,6 +2954,7 @@ MonoBehaviour:
   hitFlashRenderers: []
   hitFlashDuration: 0.12
   hitFlashColor: {r: 1, g: 0, b: 0, a: 1}
+  enemyImpactFlashColor: {r: 1, g: 1, b: 1, a: 1}
   speedMultiplier: 1
   damageMultiplier: 1
   radiusMultiplier: 1
