@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -55,10 +55,6 @@ public class SpinnerController : MonoBehaviour
     [Header("Elimination")]
     public bool destroyOnEliminate = true;
     public float eliminateDelay = 0.6f;
-
-    [Header("Drops")]
-    public GameObject coinDropPrefab;
-    public int coinsToDrop = 1;
 
     public int CurrentHealth { get; private set; }
     public bool IsAlive => CurrentHealth > 0;
@@ -444,15 +440,6 @@ public class SpinnerController : MonoBehaviour
     System.Collections.IEnumerator EliminateRoutine()
     {
         if (eliminateDelay > 0f) yield return new WaitForSeconds(eliminateDelay);
-
-        // Drop coin pickup if assigned and this is an enemy
-        if (isEnemy && coinDropPrefab != null)
-        {
-            GameObject coin = Instantiate(coinDropPrefab, transform.position, Quaternion.identity);
-            var coinComp = coin.GetComponent<CoinPickup>();
-            if (coinComp != null)
-                coinComp.coinValue = Mathf.Max(1, coinsToDrop);
-        }
 
         if (destroyOnEliminate)
             Destroy(gameObject);

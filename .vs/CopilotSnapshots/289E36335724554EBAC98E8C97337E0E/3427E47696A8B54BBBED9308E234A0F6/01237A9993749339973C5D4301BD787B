@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -451,7 +451,7 @@ public class SpinnerController : MonoBehaviour
             GameObject coin = Instantiate(coinDropPrefab, transform.position, Quaternion.identity);
             var coinComp = coin.GetComponent<CoinPickup>();
             if (coinComp != null)
-                coinComp.coinValue = Mathf.Max(1, coinsToDrop);
+                coinComp.coinAmount = Mathf.Max(1, coinsToDrop);
         }
 
         if (destroyOnEliminate)

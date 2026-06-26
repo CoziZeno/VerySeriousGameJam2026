@@ -1,0 +1,64 @@
+﻿using System;
+using UnityEngine;
+
+[DisallowMultipleComponent]
+public class GameProgressManager : MonoBehaviour
+{
+    public static GameProgressManager Instance { get; private set; }
+
+    public int Coins { get; private set; }
+
+    public event Action<int> OnCoinsChanged;
+
+    const string CoinsKey = "_GPM_Coins";
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        LoadProgress();
+    }
+
+    public void AddCoins(int amount)
+    {
+        if (amount <= 0) return;
+        Coins += amount;
+        SaveProgress();
+        OnCoinsChanged?.Invoke(Coins);
+    }
+
+    public bool SpendCoins(int amount)
+    {
+        if (amount <= 0) return true;
+        if (Coins < amount) return false;
+        Coins -= amount;
+        SaveProgress();
+        OnCoinsChanged?.Invoke(Coins);
+        return true;
+    }
+
+    public void ResetProgress()
+    {
+        Coins = 0;
+        SaveProgress();
+        OnCoinsChanged?.Invoke(Coins);
+    }
+
+    void SaveProgress()
+    {
+        PlayerPrefs.SetInt(CoinsKey, Coins);
+        PlayerPrefs.Save();
+    }
+
+    void LoadProgress()
+    {
+        Coins = PlayerPrefs.GetInt(CoinsKey, 0);
+    }
+}

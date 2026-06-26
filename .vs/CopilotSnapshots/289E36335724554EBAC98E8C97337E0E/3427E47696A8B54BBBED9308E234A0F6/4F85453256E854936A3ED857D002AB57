@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -323,13 +323,6 @@ public class SpinnerCombat : MonoBehaviour
             damage,
             true);
 
-        // If attacker is player and target died, register kill with progress manager
-        bool attackerIsPlayer = controller != null && !controller.isEnemy;
-        if (attackerIsPlayer && target.controller.CurrentHealth <= 0)
-        {
-            GameProgressManager.Instance?.RegisterKill(true, target.transform.position);
-        }
-
         return true;
     }
 
@@ -361,12 +354,6 @@ public class SpinnerCombat : MonoBehaviour
             target,
             attackDamage,
             true);
-
-        bool attackerIsPlayer = controller != null && !controller.isEnemy;
-        if (attackerIsPlayer && target.controller.CurrentHealth <= 0)
-        {
-            GameProgressManager.Instance?.RegisterKill(true, target.transform.position);
-        }
     }
 
     void DrainPlayerEnergy(SpinnerCombat player)
