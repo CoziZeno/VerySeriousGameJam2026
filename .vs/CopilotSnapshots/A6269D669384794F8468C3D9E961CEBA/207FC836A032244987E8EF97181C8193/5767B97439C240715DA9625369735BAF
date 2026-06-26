@@ -1,0 +1,12 @@
+﻿#ifndef HANDPAINTED_WIND_INCLUDED
+#define HANDPAINTED_WIND_INCLUDED
+
+float3 ApplyWindOS(float3 positionOS, float3 normalOS)
+{
+    float swayMask = saturate(positionOS.y * 0.5 + 0.5);
+    float wave = sin((positionOS.x + positionOS.z) * _WindFrequency + _Time.y * _WindSpeed);
+    float3 bendDir = normalize(float3(normalOS.x, 0.0, normalOS.z) + 1e-5);
+    return bendDir * wave * _WindStrength * 0.08 * swayMask;
+}
+
+#endif

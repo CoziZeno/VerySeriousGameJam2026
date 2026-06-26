@@ -20,7 +20,7 @@ public class GunUpgradeModule : SpinnerUpgradeModule
     public int ammoOnKill = 1;
 
     [Header("Input")]
-    public KeyCode fireKey = KeyCode.Return;
+    public KeyCode fireKey = KeyCode.Mouse0;
     public bool playerOnly = true;
 
     float _nextFireTime;

@@ -142,5 +142,5 @@ MonoBehaviour:
   maxAmmo: 30
   ammoPerShot: 1
   ammoOnKill: 1
-  fireKey: 32
+  fireKey: 323
   playerOnly: 1

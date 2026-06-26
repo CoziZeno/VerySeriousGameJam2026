@@ -1,0 +1,288 @@
+﻿Shader "Custom/HandPaintedStylizedURP_Package"
+{
+    Properties
+    {
+        [MainColor] _BaseColor("Base Color", Color) = (1,1,1,1)
+        _ShadowColor("Shadow Color", Color) = (0.45,0.45,0.5,1)
+        _HighlightColor("Highlight Color", Color) = (1,0.98,0.92,1)
+
+        _AmbientSkyColor("Ambient Sky Color", Color) = (0.55,0.65,0.8,1)
+        _AmbientGroundColor("Ambient Ground Color", Color) = (0.35,0.3,0.25,1)
+
+        _VertexPaintStrength("Vertex Paint Strength", Range(0,1)) = 1
+
+        _BrushTex("Brush Texture", 2D) = "white" {}
+        _BrushTiling("Brush Tiling", Range(0.1,20)) = 4
+        _BrushStrength("Brush Strength", Range(0,1)) = 0.4
+        _BrushContrast("Brush Contrast", Range(0.5,3)) = 1.2
+
+        _NoiseScale("World Triplanar Noise Scale", Range(0.1,30)) = 6
+        _NoiseStrength("World Triplanar Noise Strength", Range(0,1)) = 0.18
+        _NoiseContrast("Noise Contrast", Range(0.5,4)) = 1.5
+
+        _EdgeColor("Edge Highlight Color", Color) = (1,1,1,1)
+        _EdgePower("Edge Highlight Power", Range(0.5,8)) = 3
+        _EdgeIntensity("Edge Highlight Intensity", Range(0,2)) = 0.35
+
+        _CavityColor("Cavity Color", Color) = (0.08,0.06,0.05,1)
+        _CavityDarkness("Cavity Darkness", Range(0,2)) = 0.7
+        _CavityScale("Cavity Scale", Range(0.1,40)) = 10
+        _CavityWidth("Cavity Width", Range(0.001,0.5)) = 0.12
+
+        _CrackColor("Crack Color", Color) = (0.08,0.06,0.05,1)
+        _CrackScale("Crack Scale", Range(0.1,60)) = 10
+        _CrackWidth("Crack Width", Range(0.001,0.5)) = 0.08
+        _CrackIntensity("Crack Intensity", Range(0,1)) = 0.45
+
+        _RampThreshold("Toon Ramp Threshold", Range(0,1)) = 0.45
+        _RampSoftness("Toon Ramp Softness", Range(0.001,0.5)) = 0.18
+
+        _SpecColor("Spec Color", Color) = (1,1,1,1)
+        _SpecPower("Spec Power", Range(1,128)) = 24
+        _SpecIntensity("Spec Intensity", Range(0,2)) = 0.18
+
+        _OutlineColor("Outline Color", Color) = (0.08,0.08,0.08,1)
+        _OutlineWidth("Outline Width", Range(0,0.1)) = 0.02
+
+        _WindStrength("Wind Strength", Range(0,1)) = 0.08
+        _WindSpeed("Wind Speed", Range(0,10)) = 2
+        _WindFrequency("Wind Frequency", Range(0.1,10)) = 1.5
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "RenderType"="Opaque"
+            "RenderPipeline"="UniversalPipeline"
+            "Queue"="Geometry"
+        }
+
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
+
+        TEXTURE2D(_BrushTex);
+        SAMPLER(sampler_BrushTex);
+
+        CBUFFER_START(UnityPerMaterial)
+            half4 _BaseColor;
+            half4 _ShadowColor;
+            half4 _HighlightColor;
+            half4 _AmbientSkyColor;
+            half4 _AmbientGroundColor;
+            half4 _EdgeColor;
+            half4 _CavityColor;
+            half4 _CrackColor;
+            half4 _SpecColor;
+            half4 _OutlineColor;
+
+            half _VertexPaintStrength;
+            half _BrushTiling;
+            half _BrushStrength;
+            half _BrushContrast;
+
+            half _NoiseScale;
+            half _NoiseStrength;
+            half _NoiseContrast;
+
+            half _EdgePower;
+            half _EdgeIntensity;
+
+            half _CavityDarkness;
+            half _CavityScale;
+            half _CavityWidth;
+
+            half _CrackScale;
+            half _CrackWidth;
+            half _CrackIntensity;
+
+            half _RampThreshold;
+            half _RampSoftness;
+
+            half _SpecPower;
+            half _SpecIntensity;
+
+            half _OutlineWidth;
+
+            half _WindStrength;
+            half _WindSpeed;
+            half _WindFrequency;
+        CBUFFER_END
+
+        #include "HLSL/Common.hlsl"
+        #include "HLSL/Wind.hlsl"
+        ENDHLSLINCLUDE
+
+        Pass
+        {
+            Name "Outline"
+            Tags { "LightMode"="SRPDefaultUnlit" }
+            Cull Front
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+                float3 positionWS = TransformObjectToWorld(IN.positionOS.xyz);
+                float3 normalWS = normalize(TransformObjectToWorldNormal(IN.normalOS));
+                positionWS += normalWS * _OutlineWidth;
+                OUT.positionCS = TransformWorldToHClip(positionWS);
+                return OUT;
+            }
+
+            half4 frag(Varyings IN) : SV_Target
+            {
+                return _OutlineColor;
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ForwardLit"
+            Tags { "LightMode"="UniversalForward" }
+            Cull Back
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP 
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+                float4 color      : COLOR;
+                float2 uv         : TEXCOORD0;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                float3 positionWS : TEXCOORD0;
+                half3 normalWS    : TEXCOORD1;
+                half4 color       : TEXCOORD2;
+                float2 uv         : TEXCOORD3;
+                float4 shadowCoord: TEXCOORD4;
+            };
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+
+                float3 positionOS = IN.positionOS.xyz;
+                float3 normalOS = IN.normalOS;
+
+                // Subtle optional wind for foliage / cloth / hand-painted props.
+                positionOS += ApplyWindOS(positionOS, normalOS);
+
+                OUT.positionWS  = TransformObjectToWorld(positionOS);
+                OUT.positionCS  = TransformWorldToHClip(OUT.positionWS);
+                OUT.normalWS    = TransformObjectToWorldNormal(normalOS);
+                OUT.color       = IN.color;
+                OUT.uv          = IN.uv;
+                OUT.shadowCoord = TransformWorldToShadowCoord(OUT.positionWS);
+                return OUT;
+            }
+
+            half3 EvaluateAdditionalLights(float3 positionWS, half3 normalWS, half3 albedo)
+            {
+                half3 total = 0;
+                uint lightCount = GetAdditionalLightsCount();
+                for (uint i = 0; i < lightCount; i++)
+                {
+                    Light light = GetAdditionalLight(i, positionWS);
+                    half ndotl = saturate(dot(normalWS, light.direction));
+                    half ramp = smoothstep(_RampThreshold - _RampSoftness, _RampThreshold + _RampSoftness, ndotl);
+                    half3 toon = lerp(_ShadowColor.rgb, _HighlightColor.rgb, ramp);
+
+                    half atten = light.distanceAttenuation * light.shadowAttenuation;
+                    total += albedo * toon * light.color * atten;
+                }
+                return total;
+            }
+
+            half4 frag(Varyings IN) : SV_Target
+            {
+                half3 n = normalize(IN.normalWS);
+                half3 v = normalize(GetWorldSpaceViewDir(IN.positionWS));
+
+                Light mainLight = GetMainLight(IN.shadowCoord);
+                half3 l = normalize(mainLight.direction);
+
+                half ndotl = saturate(dot(n, l));
+                half toon = smoothstep(_RampThreshold - _RampSoftness, _RampThreshold + _RampSoftness, ndotl);
+
+                half3 paintColor = saturate(IN.color.rgb);
+                half3 albedo = lerp(_BaseColor.rgb, paintColor, _VertexPaintStrength);
+
+                // Painterly brush strokes projected in world space.
+                half brush = SampleBrushTriplanar(IN.positionWS, n, _BrushTiling);
+                brush = pow(saturate(brush), _BrushContrast);
+                albedo *= lerp(1.0h, brush, _BrushStrength);
+
+                // World-space triplanar noise.
+                half triNoise = TriplanarNoise(IN.positionWS, n, _NoiseScale);
+                triNoise = pow(saturate(triNoise), _NoiseContrast);
+                albedo *= lerp(1.0h, lerp(0.92h, 1.10h, triNoise), _NoiseStrength);
+
+                // Cavity darkening and cracks.
+                half cavity = CavityMask(IN.positionWS, n, _CavityScale, _CavityWidth);
+                albedo = lerp(albedo, _CavityColor.rgb, cavity * _CavityDarkness);
+
+                half cracks = CrackPattern(IN.positionWS, _CrackScale, _CrackWidth);
+                albedo = lerp(albedo, _CrackColor.rgb, cracks * _CrackIntensity);
+
+                half3 toonLight = lerp(_ShadowColor.rgb, _HighlightColor.rgb, toon);
+                half3 ambient = AmbientGradient(n, _AmbientSkyColor.rgb, _AmbientGroundColor.rgb);
+
+                half lightAtten = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
+                half3 diffuse = albedo * toonLight * mainLight.color * lightAtten;
+
+                // Edge highlight / rim lighting.
+                half rim = pow(1.0h - saturate(dot(n, v)), _EdgePower) * _EdgeIntensity;
+                half3 edge = rim * _EdgeColor.rgb;
+
+                // Small specular to sell the hand-painted varnish look.
+                half3 h = normalize(l + v);
+                half spec = pow(saturate(dot(n, h)), _SpecPower) * _SpecIntensity;
+                half3 specular = spec * _SpecColor.rgb * mainLight.color * lightAtten;
+
+                // Additional lights (Forward / Forward+ compatible enough for URP).
+                half3 additional = EvaluateAdditionalLights(IN.positionWS, n, albedo);
+
+                half3 finalColor = diffuse + ambient * albedo + edge + specular + additional;
+                return half4(finalColor, _BaseColor.a);
+            }
+            ENDHLSL
+        }
+
+        // Reuse URP's built-in shadow caster so the material casts shadows.
+        // NOTE: The pass name must be ALL CAPS in ShaderLab.
+        UsePass "Universal Render Pipeline/Lit/SHADOWCASTER"
+    }
+
+    FallBack Off
+}
