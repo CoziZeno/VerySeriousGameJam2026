@@ -150,8 +150,99 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6684156052906406278}
+  - {fileID: 404828984500433319}
   m_Father: {fileID: 2777897006260287830}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1069021610337266461
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 404828984500433319}
+  - component: {fileID: 3616925156592664066}
+  - component: {fileID: 1573182395252853448}
+  m_Layer: 0
+  m_Name: fidget_low
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &404828984500433319
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1069021610337266461}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.212, z: 0}
+  m_LocalScale: {x: 3.3158, y: 3.3158, z: 3.3158}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2994821048319992388}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &3616925156592664066
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1069021610337266461}
+  m_Mesh: {fileID: -4369077118708729325, guid: a881818d601a2154d8b0caf8f36d4630, type: 3}
+--- !u!23 &1573182395252853448
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1069021610337266461}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: a8f19a8dfcd565341886ce728074d877, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1517691560683520055
 GameObject:
   m_ObjectHideFlags: 0
@@ -680,6 +771,7 @@ MonoBehaviour:
   movementLocked: 0
   dashKey: 304
   attackKey: 32
+  sweepKey: 113
   baseMoveSpeed: 8
   acceleration: 28
   turnSpeed: 14
@@ -702,6 +794,11 @@ MonoBehaviour:
   shieldCharges: 0
   destroyOnEliminate: 1
   eliminateDelay: 0.6
+  coinDropPrefab: {fileID: 8112268337209913259, guid: bb0e50587429df146a8c5c6644191b27, type: 3}
+  coinsToDrop: 1
+  healthOrbPrefab: {fileID: 8833027560167482573, guid: e00c35cc4015634468d81a7ef503b76f, type: 3}
+  healthOrbDropChance: 1
+  healthOrbHealAmount: 1
 --- !u!54 &8103904420609371855
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -745,11 +842,32 @@ MonoBehaviour:
   dashDuration: 0.22
   dashCooldown: 3
   dashForce: 10
+  dashVFXPrefab: {fileID: 0}
+  dashVFXOffset: {x: 0, y: 0.2, z: 0}
+  dashVFXLifetime: 0.35
+  addFallbackDashTrail: 1
+  dashFlashColor: {r: 1, g: 1, b: 1, a: 1}
+  dashFlashDuration: 0.12
   attackCooldown: 2
   attackDuration: 0.18
   attackForce: 25
   attackDamage: 3
   attackKnockback: 20
+  sweepSlashPrefab: {fileID: 0}
+  sweepSpawnPoint: {fileID: 0}
+  sweepCooldown: 1.2
+  sweepSpeed: 18
+  sweepRange: 10
+  sweepDamage: 2
+  sweepKnockback: 9
+  sweepStunDuration: 0.15
+  sweepSlashScale: {x: 2.2, y: 0.08, z: 0.45}
+  sweepTargetMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  sweepSlashVFXPrefab: {fileID: 0}
+  addFallbackSweepTrail: 1
+  sweepUnlocked: 0
   energyLossOnContact: 2
   contactCooldown: 0.5
 --- !u!114 &3581897425629146768
@@ -1163,6 +1281,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0effa1bc289b7734dbe09f6ddac8f01f, type: 3}
       propertyPath: m_ConstrainProportionsScale
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 0effa1bc289b7734dbe09f6ddac8f01f, type: 3}
+      propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 0effa1bc289b7734dbe09f6ddac8f01f, type: 3}

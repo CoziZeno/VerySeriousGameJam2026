@@ -32,5 +32,13 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         SceneManager.LoadScene(StoryModeSceneName);
     }
+    public void ResumeButton()
+    {
+        Time.timeScale = 1f;
+    }
 
+    public void PauseButton()
+    {
+        Time.timeScale = 0f;
+    }
 }

@@ -59,6 +59,9 @@ public class SpinnerController : MonoBehaviour
     [Header("Drops")]
     public GameObject coinDropPrefab;
     public int coinsToDrop = 1;
+    public HealthOrbPickup healthOrbPrefab;
+    [Range(0f, 1f)] public float healthOrbDropChance = 0.25f;
+    public int healthOrbHealAmount = 1;
 
     public int CurrentHealth { get; private set; }
     public bool IsAlive => CurrentHealth > 0;
@@ -391,12 +394,29 @@ public class SpinnerController : MonoBehaviour
         _hitFlashRoutine = StartCoroutine(HitFlashRoutine());
     }
 
+    public void TriggerColorFlash(Color color, float duration)
+    {
+        if (_hitFlashRoutine != null)
+            StopCoroutine(_hitFlashRoutine);
+
+        _hitFlashRoutine = StartCoroutine(ColorFlashRoutine(color, duration));
+    }
+
     System.Collections.IEnumerator HitFlashRoutine()
     {
         if (isEnemy)
             yield return StartCoroutine(EnemyImpactFlashRoutine());
         else
             yield return StartCoroutine(SingleColorFlashRoutine());
+
+        RestoreHitFlashColors();
+        _hitFlashRoutine = null;
+    }
+
+    System.Collections.IEnumerator ColorFlashRoutine(Color color, float duration)
+    {
+        SetHitFlashColor(color);
+        yield return new WaitForSeconds(Mathf.Max(0.01f, duration));
 
         RestoreHitFlashColors();
         _hitFlashRoutine = null;
@@ -452,6 +472,14 @@ public class SpinnerController : MonoBehaviour
             var coinComp = coin.GetComponent<CoinPickup>();
             if (coinComp != null)
                 coinComp.coinValue = Mathf.Max(1, coinsToDrop);
+        }
+
+        if (isEnemy && healthOrbPrefab != null && UnityEngine.Random.value <= healthOrbDropChance)
+        {
+            Vector2 scatter = UnityEngine.Random.insideUnitCircle * 0.55f;
+            Vector3 dropPosition = transform.position + new Vector3(scatter.x, 0.25f, scatter.y);
+            HealthOrbPickup orb = Instantiate(healthOrbPrefab, dropPosition, Quaternion.identity);
+            orb.healAmount = Mathf.Max(1, healthOrbHealAmount);
         }
 
         if (destroyOnEliminate)

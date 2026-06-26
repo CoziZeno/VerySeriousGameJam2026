@@ -10,18 +10,18 @@ public class ShopUI : MonoBehaviour
     [Header("Sweep Attack")]
     public SpinnerController playerController;
     public SpinnerCombat playerCombat;
+    public int sweepAttackCost = 10;
     public Button sweepAttackButton;
     public TMP_Text sweepAttackButtonText;
+    public TMP_Text sweepAttackPriceText;
     public string sweepPurchasedText = "Bought";
 
-    [Header("Double Health Upgrade")]
-    public SpinnerUpgradeManager playerUpgradeManager;
-    public UpgradeData doubleHealthUpgrade;
-    public Button doubleHealthButton;
-    public TMP_Text doubleHealthButtonText;
-    public string doubleHealthPurchasedText = "Bought";
-
-    bool _doubleHealthBought;
+    [Header("Health Pod")]
+    public int healthPodCost = 5;
+    public int healthPodsPerPurchase = 1;
+    public Button healthPodButton;
+    public TMP_Text healthPodPriceText;
+    public TMP_Text healthPodCountText;
 
     public void ContinueButton()
     {
@@ -32,13 +32,22 @@ public class ShopUI : MonoBehaviour
         waveManager.StartNextWave();
     }
 
+    void OnEnable()
+    {
+        SubscribeToProgress();
+        RefreshShopButtons();
+    }
+
+    void OnDisable()
+    {
+        UnsubscribeFromProgress();
+    }
+
     void Start()
     {
         ResolvePlayerCombat();
-        ResolvePlayerUpgradeManager();
         shopPanel.SetActive(false);
-        RefreshSweepAttackButton();
-        RefreshDoubleHealthButton();
+        RefreshShopButtons();
     }
 
     public void BuySweepAttackButton()
@@ -48,49 +57,50 @@ public class ShopUI : MonoBehaviour
         if (playerCombat == null || playerCombat.sweepUnlocked)
             return;
 
+        GameProgressManager progress = GetProgressManager();
+        if (progress == null || !progress.TrySpendCoins(sweepAttackCost))
+            return;
+
         playerCombat.UnlockSweepAttack();
-        RefreshSweepAttackButton();
+        RefreshShopButtons();
     }
 
-    public void BuyDoubleHealthButton()
+    public void BuyHealthPodButton()
     {
-        ResolvePlayerUpgradeManager();
-
-        if (HasDoubleHealthUpgrade() || playerUpgradeManager == null || doubleHealthUpgrade == null)
+        GameProgressManager progress = GetProgressManager();
+        if (progress == null || !progress.TrySpendCoins(healthPodCost))
             return;
 
-        playerUpgradeManager.AddUpgrade(doubleHealthUpgrade);
-        _doubleHealthBought = true;
-        RefreshDoubleHealthButton();
+        progress.AddHealthPods(Mathf.Max(1, healthPodsPerPurchase));
+        RefreshShopButtons();
     }
 
-    void RefreshSweepAttackButton()
+    void RefreshShopButtons()
     {
-        if (playerCombat == null)
-            return;
+        ResolvePlayerCombat();
 
-        if (!playerCombat.sweepUnlocked)
-            return;
+        GameProgressManager progress = GetProgressManager();
+        int coins = progress != null ? progress.coins : 0;
+
+        if (sweepAttackPriceText != null)
+            sweepAttackPriceText.text = sweepAttackCost.ToString();
+
+        if (healthPodPriceText != null)
+            healthPodPriceText.text = healthPodCost.ToString();
+
+        if (healthPodCountText != null)
+            healthPodCountText.text = progress != null ? progress.healthPods.ToString() : "0";
+
+        bool sweepBought = playerCombat != null && playerCombat.sweepUnlocked;
 
         if (sweepAttackButton != null)
-            sweepAttackButton.interactable = false;
+            sweepAttackButton.interactable = !sweepBought && coins >= sweepAttackCost;
 
-        if (sweepAttackButtonText != null)
+        if (sweepAttackButtonText != null && sweepBought)
             sweepAttackButtonText.text = sweepPurchasedText;
-    }
 
-    void RefreshDoubleHealthButton()
-    {
-        if (!HasDoubleHealthUpgrade())
-            return;
-
-        _doubleHealthBought = true;
-
-        if (doubleHealthButton != null)
-            doubleHealthButton.interactable = false;
-
-        if (doubleHealthButtonText != null)
-            doubleHealthButtonText.text = doubleHealthPurchasedText;
+        if (healthPodButton != null)
+            healthPodButton.interactable = coins >= healthPodCost;
     }
 
     void ResolvePlayerCombat()
@@ -102,21 +112,22 @@ public class ShopUI : MonoBehaviour
             playerCombat = playerController.GetComponent<SpinnerCombat>();
     }
 
-    void ResolvePlayerUpgradeManager()
+    void SubscribeToProgress()
     {
-        if (playerUpgradeManager != null)
-            return;
-
-        if (playerController != null)
-            playerUpgradeManager = playerController.GetComponent<SpinnerUpgradeManager>();
+        GameProgressManager progress = GetProgressManager();
+        if (progress != null)
+            progress.OnStatsChanged += RefreshShopButtons;
     }
 
-    bool HasDoubleHealthUpgrade()
+    void UnsubscribeFromProgress()
     {
-        if (_doubleHealthBought)
-            return true;
+        GameProgressManager progress = GetProgressManager();
+        if (progress != null)
+            progress.OnStatsChanged -= RefreshShopButtons;
+    }
 
-        return playerUpgradeManager != null &&
-            playerUpgradeManager.HasModule<DoubleHealthUpgradeModule>();
+    GameProgressManager GetProgressManager()
+    {
+        return GameProgressManager.Instance ?? FindObjectOfType<GameProgressManager>();
     }
 }

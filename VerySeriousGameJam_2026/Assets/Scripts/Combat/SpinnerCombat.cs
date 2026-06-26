@@ -13,6 +13,12 @@ public class SpinnerCombat : MonoBehaviour
     public float dashDuration = 0.22f;
     public float dashCooldown = 0.65f;
     public float dashForce = 12f;
+    public GameObject dashVFXPrefab;
+    public Vector3 dashVFXOffset = new Vector3(0f, 0.2f, 0f);
+    public float dashVFXLifetime = 0.35f;
+    public bool addFallbackDashTrail = true;
+    public Color dashFlashColor = Color.white;
+    public float dashFlashDuration = 0.12f;
 
     [Header("Attack")]
     public float attackCooldown = 2f;
@@ -108,6 +114,8 @@ public class SpinnerCombat : MonoBehaviour
             ForceMode.VelocityChange);
 
         controller.LockControl(dashDuration * 0.5f);
+
+        PlayDashFeedback(dashDir);
 
         AudioController.Instance?.PlayDash();
     }
@@ -229,6 +237,67 @@ public class SpinnerCombat : MonoBehaviour
             return true;
 
         return controller.spinEnergy.SpendEnergy(amount);
+    }
+
+    void PlayDashFeedback(Vector3 dashDir)
+    {
+        if (controller != null)
+            controller.TriggerColorFlash(dashFlashColor, dashFlashDuration);
+
+        if (dashVFXPrefab != null)
+        {
+            Quaternion rotation = dashDir.sqrMagnitude > 0.001f
+                ? Quaternion.LookRotation(dashDir.normalized, Vector3.up)
+                : transform.rotation;
+
+            GameObject dashVFX = Instantiate(
+                dashVFXPrefab,
+                transform.position + dashVFXOffset,
+                rotation,
+                transform);
+
+            VFXAutoDestroy autoDestroy = dashVFX.GetComponent<VFXAutoDestroy>();
+            if (autoDestroy == null)
+                autoDestroy = dashVFX.AddComponent<VFXAutoDestroy>();
+
+            autoDestroy.fallbackLifetime = dashVFXLifetime;
+        }
+
+        if (addFallbackDashTrail)
+            StartCoroutine(DashTrailRoutine());
+    }
+
+    System.Collections.IEnumerator DashTrailRoutine()
+    {
+        TrailRenderer trail = gameObject.AddComponent<TrailRenderer>();
+        trail.time = 0.2f;
+        trail.minVertexDistance = 0.03f;
+        trail.widthMultiplier = 1.25f;
+        trail.alignment = LineAlignment.View;
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[]
+            {
+                new GradientColorKey(Color.white, 0f),
+                new GradientColorKey(new Color(0.55f, 0.95f, 1f), 1f)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0.9f, 0f),
+                new GradientAlphaKey(0.45f, 0.45f),
+                new GradientAlphaKey(0f, 1f)
+            });
+        trail.colorGradient = gradient;
+
+        Shader shader = Shader.Find("Sprites/Default");
+        if (shader != null)
+            trail.material = new Material(shader);
+
+        yield return new WaitForSeconds(dashDuration + trail.time);
+
+        if (trail != null)
+            Destroy(trail);
     }
 
     SweepSlashProjectile CreateSweepSlash(Vector3 spawnPos, Quaternion spawnRot)

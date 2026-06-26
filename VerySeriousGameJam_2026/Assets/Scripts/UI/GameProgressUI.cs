@@ -8,6 +8,7 @@ public class GameProgressUI : MonoBehaviour
     public TextMeshProUGUI coinsText;
     public TextMeshProUGUI killsText;
     public TextMeshProUGUI scoreText;
+    public TextMeshProUGUI healthPodsText;
 
     void OnEnable()
     {
@@ -60,5 +61,8 @@ public class GameProgressUI : MonoBehaviour
 
         if (scoreText != null)
             scoreText.text = mgr.score.ToString();
+
+        if (healthPodsText != null)
+            healthPodsText.text = mgr.healthPods.ToString();
     }
 }

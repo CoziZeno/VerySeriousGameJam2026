@@ -10,6 +10,7 @@ public class GameProgressManager : MonoBehaviour
     public int score;
     public int coins;
     public int xp;
+    public int healthPods;
 
     [Header("Kill Rewards")]
     public int scorePerKill = 100;
@@ -46,6 +47,36 @@ public class GameProgressManager : MonoBehaviour
         if (amount <= 0) return;
         coins += amount;
         OnStatsChanged?.Invoke();
+    }
+
+    public bool TrySpendCoins(int amount)
+    {
+        if (amount <= 0)
+            return true;
+
+        if (coins < amount)
+            return false;
+
+        coins -= amount;
+        OnStatsChanged?.Invoke();
+        return true;
+    }
+
+    public void AddHealthPods(int amount)
+    {
+        if (amount <= 0) return;
+        healthPods += amount;
+        OnStatsChanged?.Invoke();
+    }
+
+    public bool TryUseHealthPod()
+    {
+        if (healthPods <= 0)
+            return false;
+
+        healthPods--;
+        OnStatsChanged?.Invoke();
+        return true;
     }
 
     public void AddXP(int amount)
