@@ -295,7 +295,11 @@ public class SpinnerController : MonoBehaviour
     public void Heal(int amount)
     {
         if (!IsAlive) return;
+        int oldHealth = CurrentHealth;
         CurrentHealth = Mathf.Clamp(CurrentHealth + amount, 0, maxHealth);
+
+        if (CurrentHealth > oldHealth)
+            AudioController.Instance?.PlayHeal();
     }
 
     public void AddMaxHealth(int amount, bool healAddedHealth)
@@ -332,10 +336,19 @@ public class SpinnerController : MonoBehaviour
         LockControl(stunDuration);
         GrantInvulnerability(invulnerabilityDuration);
 
+        AudioController.Instance?.PlayHit();
+
         if (CurrentHealth <= 0)
         {
             CurrentHealth = 0;
             OnEliminated?.Invoke(this);
+
+            // Play death sound for this character, and kill sound if it's not the player
+            if (isEnemy)
+                AudioController.Instance?.PlayKill();
+            else
+                AudioController.Instance?.PlayDeath();
+
             StartCoroutine(EliminateRoutine());
         }
     }

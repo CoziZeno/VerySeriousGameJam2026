@@ -1,0 +1,484 @@
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+[DisallowMultipleComponent]
+[RequireComponent(typeof(Rigidbody))]
+public class SpinnerController : MonoBehaviour
+{
+    public static readonly List<SpinnerController> AllSpinners = new List<SpinnerController>();
+
+    [Header("Control")]
+    public bool usePlayerInput = true;
+    public bool invertControls;
+    public bool useCameraRelativeMovement = true;
+    public bool swapMoveAxes;
+    public Camera movementCamera;
+    public SpinnerCombat combat;
+    public PlayerSpinEnergy spinEnergy;
+    public bool isEnemy;
+    public bool movementLocked;
+    public KeyCode dashKey = KeyCode.LeftShift;
+    public KeyCode attackKey = KeyCode.Space;
+    public KeyCode sweepKey = KeyCode.Q;
+
+    [Header("Movement")]
+    public float baseMoveSpeed = 8f;
+    public float acceleration = 10f; // Adjusted for ForceMode acceleration
+    public float turnSpeed = 14f;
+    public float inputDeadZone = 0.08f;
+
+    [Tooltip("If assigned, this transform is rotated for the visible spinner spin.")]
+    public Transform visualSpinner;
+    public float baseVisualSpinSpeed = 720f;
+
+    [Header("Health & Defense")]
+    public int maxHealth = 3;
+    public float hitStunDuration = 0.2f;
+    public float invulnerabilityDuration = 0.05f; // Shortened so consecutive hits matter
+    [Range(0f, 1f)] public float knockbackResistance = 0.1f;
+
+    [Header("Hit Flash")]
+    public Renderer[] hitFlashRenderers;
+    public float hitFlashDuration = 0.5f;
+    public Color hitFlashColor = Color.red;
+    public Color enemyImpactFlashColor = Color.white;
+
+    [Header("Powerups")]
+    public float speedMultiplier = 1f;
+    public float damageMultiplier = 1f;
+    public float radiusMultiplier = 1f;
+    public float cooldownMultiplier = 1f;
+    public float spinMultiplier = 1f;
+    public int shieldCharges = 0;
+
+    [Header("Elimination")]
+    public bool destroyOnEliminate = true;
+    public float eliminateDelay = 0.6f;
+
+    public int CurrentHealth { get; private set; }
+    public bool IsAlive => CurrentHealth > 0;
+    public bool IsStunned => Time.time < _stunnedUntil;
+    public bool IsInvulnerable => Time.time < _invulnerableUntil || shieldCharges > 0;
+
+    public Vector3 MoveDirectionWorld { get; private set; }
+    public Vector2 CurrentMoveInput { get; private set; }
+
+    public event Action<SpinnerController> OnEliminated;
+    public event Action<SpinnerController, int> OnHitTaken;
+
+    public Rigidbody Rb { get; private set; }
+
+    Vector2 _externalMoveInput;
+    bool _hasExternalMoveInput;
+    float _stunnedUntil;
+    float _invulnerableUntil;
+    Coroutine _hitFlashRoutine;
+
+    readonly List<ActivePowerup> _activePowerups = new List<ActivePowerup>();
+    readonly Dictionary<Renderer, Color> _baseRendererColors = new Dictionary<Renderer, Color>();
+
+    [Serializable]
+    class ActivePowerup
+    {
+        public PowerupData data;
+        public float expiresAt;
+    }
+
+    void OnEnable() { if (!AllSpinners.Contains(this)) AllSpinners.Add(this); }
+    void OnDisable() { AllSpinners.Remove(this); }
+
+    void Awake()
+    {
+        Rb = GetComponent<Rigidbody>();
+        Rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        Rb.interpolation = RigidbodyInterpolation.Interpolate;
+        Rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+        if (movementCamera == null)
+            movementCamera = Camera.main;
+
+        CurrentHealth = maxHealth;
+        if (combat == null) combat = GetComponent<SpinnerCombat>();
+
+        if (spinEnergy == null)
+            spinEnergy = GetComponent<PlayerSpinEnergy>();
+
+        CacheHitFlashRenderers();
+        StoreBaseRendererColors();
+    }
+
+    void Update()
+    {
+        UpdatePowerups();
+
+        if (visualSpinner != null)
+        {
+            float spinSpeed = baseVisualSpinSpeed * spinMultiplier;
+
+            if (!isEnemy && spinEnergy != null)
+                spinSpeed *= spinEnergy.GetSpinMultiplier();
+
+            visualSpinner.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.Self);
+        }
+
+        if (!IsAlive) return;
+
+        if (usePlayerInput)
+        {
+            CurrentMoveInput = movementLocked ? Vector2.zero : ReadMoveInput();
+
+            if (combat != null)
+            {
+                if (Input.GetKeyDown(dashKey)) combat.TryDash();
+                if (Input.GetKeyDown(attackKey)) combat.TryLungeAttack();
+                if (Input.GetKeyDown(sweepKey)) combat.TrySweepAttack();
+            }
+        }
+        else if (_hasExternalMoveInput)
+        {
+            CurrentMoveInput = movementLocked ? Vector2.zero : ApplyInputModifiers(_externalMoveInput);
+        }
+        else
+        {
+            CurrentMoveInput = Vector2.zero;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (!IsAlive) return;
+
+        // Convert input into world movement, optionally relative to the camera view.
+        if (CurrentMoveInput.sqrMagnitude > inputDeadZone * inputDeadZone)
+        {
+            MoveDirectionWorld = GetMoveDirectionWorld(CurrentMoveInput);
+        }
+        else
+        {
+            MoveDirectionWorld = Vector3.zero;
+        }
+
+        // Apply physics-friendly movement ONLY if not stunned
+        if (!IsStunned)
+        {
+            Vector3 currentVelocity = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
+            Vector3 desiredVelocity = MoveDirectionWorld * FinalMoveSpeed;
+
+            // Calculate how much force is needed to reach the desired velocity
+            Vector3 velocityDifference = desiredVelocity - currentVelocity;
+
+            // Apply it as a force, letting Unity handle momentum and deflections
+            Rb.AddForce(velocityDifference * acceleration, ForceMode.Acceleration);
+        }
+
+        // Smooth rotation towards movement direction
+        if (MoveDirectionWorld.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(MoveDirectionWorld, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, turnSpeed * Time.fixedDeltaTime);
+        }
+    }
+
+    public float FinalMoveSpeed
+    {
+        get
+        {
+            float energyMultiplier = 1f;
+
+            if (!isEnemy && spinEnergy != null)
+                energyMultiplier = spinEnergy.GetMovementMultiplier();
+
+            return baseMoveSpeed * speedMultiplier * energyMultiplier;
+        }
+    }
+    public float FinalDamage => damageMultiplier;
+    public float FinalAttackRadius => radiusMultiplier;
+    public float FinalCooldownMultiplier => cooldownMultiplier;
+    public float FinalSpinMultiplier => spinMultiplier;
+
+    public void SetMoveInput(Vector2 input)
+    {
+        _externalMoveInput = input;
+        _hasExternalMoveInput = true;
+    }
+
+    public void ClearMoveInput()
+    {
+        _externalMoveInput = Vector2.zero;
+        _hasExternalMoveInput = false;
+    }
+
+    public void LockControl(float duration)
+    {
+        _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + duration);
+    }
+
+    public void SetMovementLocked(bool locked)
+    {
+        movementLocked = locked;
+
+        if (movementLocked)
+        {
+            CurrentMoveInput = Vector2.zero;
+
+            if (Rb != null)
+                Rb.linearVelocity = new Vector3(0f, Rb.linearVelocity.y, 0f);
+        }
+    }
+
+    Vector2 ReadMoveInput()
+    {
+        Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        return ApplyInputModifiers(input);
+    }
+
+    Vector2 ApplyInputModifiers(Vector2 input)
+    {
+        if (swapMoveAxes)
+            input = new Vector2(input.y, input.x);
+
+        if (invertControls)
+            input = -input;
+
+        return Vector2.ClampMagnitude(input, 1f);
+    }
+
+    Vector3 GetMoveDirectionWorld(Vector2 input)
+    {
+        if (!useCameraRelativeMovement)
+            return new Vector3(input.x, 0f, input.y).normalized;
+
+        Camera cam = movementCamera != null ? movementCamera : Camera.main;
+        if (cam == null)
+            return new Vector3(input.x, 0f, input.y).normalized;
+
+        Vector3 camRight = cam.transform.right;
+        camRight.y = 0f;
+        camRight.Normalize();
+
+        Vector3 camForward = cam.transform.forward;
+        camForward.y = 0f;
+        camForward.Normalize();
+
+        Vector3 move = camRight * input.x + camForward * input.y;
+        move.y = 0f;
+        return move.sqrMagnitude > 0.0001f ? move.normalized : Vector3.zero;
+    }
+
+    public void GrantInvulnerability(float duration)
+    {
+        _invulnerableUntil = Mathf.Max(_invulnerableUntil, Time.time + duration);
+    }
+
+    public void DrainSpinEnergy(float amount)
+    {
+        if (spinEnergy == null)
+            spinEnergy = GetComponent<PlayerSpinEnergy>();
+
+        if (spinEnergy != null)
+            spinEnergy.DrainEnergy(amount);
+    }
+
+    public void ApplyPowerup(PowerupData data)
+    {
+        if (data == null) return;
+
+        if (data.type == PowerupType.ShieldCharge)
+            shieldCharges += Mathf.Max(1, Mathf.RoundToInt(data.magnitude));
+        else if (data.type == PowerupType.Heal)
+            Heal(Mathf.Max(1, Mathf.RoundToInt(data.magnitude)));
+        else
+            _activePowerups.Add(new ActivePowerup { data = data, expiresAt = data.duration > 0f ? Time.time + data.duration : float.PositiveInfinity });
+    }
+
+    public void Heal(int amount)
+    {
+        if (!IsAlive) return;
+        int oldHealth = CurrentHealth;
+        CurrentHealth = Mathf.Clamp(CurrentHealth + amount, 0, maxHealth);
+
+        if (CurrentHealth > oldHealth)
+            AudioController.Instance?.PlayHeal();
+    }
+
+    public void AddMaxHealth(int amount, bool healAddedHealth)
+    {
+        int oldMaxHealth = maxHealth;
+        maxHealth = Mathf.Max(1, maxHealth + amount);
+
+        if (healAddedHealth && maxHealth > oldMaxHealth)
+            CurrentHealth += maxHealth - oldMaxHealth;
+
+        CurrentHealth = Mathf.Clamp(CurrentHealth, 0, maxHealth);
+    }
+
+    public void TakeHit(int damage, Vector3 pushDir, float knockbackForce, float stunDuration)
+    {
+        if (!IsAlive) return;
+
+        if (IsInvulnerable)
+        {
+            if (shieldCharges > 0) shieldCharges--;
+            return;
+        }
+
+        CurrentHealth -= Mathf.Max(1, damage);
+        OnHitTaken?.Invoke(this, damage);
+        TriggerHitFlash();
+
+        float resistance = Mathf.Clamp01(knockbackResistance);
+        float finalKnockback = knockbackForce * (1f - resistance);
+
+        // Actual physics knockback instead of overriding velocity
+        Rb.AddForce(pushDir * finalKnockback, ForceMode.Impulse);
+
+        LockControl(stunDuration);
+        GrantInvulnerability(invulnerabilityDuration);
+
+        AudioController.Instance?.PlayHit();
+
+        if (CurrentHealth <= 0)
+        {
+            CurrentHealth = 0;
+            OnEliminated?.Invoke(this);
+            AudioController.Instance?.PlayDeath();
+            StartCoroutine(EliminateRoutine());
+        }
+    }
+
+    void CacheHitFlashRenderers()
+    {
+        if (hitFlashRenderers != null && hitFlashRenderers.Length > 0) return;
+
+        if (visualSpinner != null)
+            hitFlashRenderers = visualSpinner.GetComponentsInChildren<Renderer>(true);
+        else
+            hitFlashRenderers = GetComponentsInChildren<Renderer>(true);
+    }
+
+    void StoreBaseRendererColors()
+    {
+        _baseRendererColors.Clear();
+        if (hitFlashRenderers == null) return;
+
+        for (int i = 0; i < hitFlashRenderers.Length; i++)
+        {
+            Renderer rendererRef = hitFlashRenderers[i];
+            if (rendererRef == null) continue;
+
+            Material material = rendererRef.material;
+            if (material != null && material.HasProperty("_Color"))
+                _baseRendererColors[rendererRef] = material.color;
+        }
+    }
+
+    void TriggerHitFlash()
+    {
+        if (_hitFlashRoutine != null)
+            StopCoroutine(_hitFlashRoutine);
+
+        _hitFlashRoutine = StartCoroutine(HitFlashRoutine());
+    }
+
+    System.Collections.IEnumerator HitFlashRoutine()
+    {
+        if (isEnemy)
+            yield return StartCoroutine(EnemyImpactFlashRoutine());
+        else
+            yield return StartCoroutine(SingleColorFlashRoutine());
+
+        RestoreHitFlashColors();
+        _hitFlashRoutine = null;
+    }
+
+    System.Collections.IEnumerator SingleColorFlashRoutine()
+    {
+        SetHitFlashColor(hitFlashColor);
+        yield return new WaitForSeconds(hitFlashDuration);
+    }
+
+    System.Collections.IEnumerator EnemyImpactFlashRoutine()
+    {
+        SetHitFlashColor(enemyImpactFlashColor);
+        yield return new WaitForSeconds(hitFlashDuration);
+    }
+
+    void SetHitFlashColor(Color color)
+    {
+        if (hitFlashRenderers == null) return;
+
+        for (int i = 0; i < hitFlashRenderers.Length; i++)
+        {
+            Renderer rendererRef = hitFlashRenderers[i];
+            if (rendererRef == null) continue;
+
+            Material material = rendererRef.material;
+            if (material != null && material.HasProperty("_Color"))
+                material.color = color;
+        }
+    }
+
+    void RestoreHitFlashColors()
+    {
+        foreach (var entry in _baseRendererColors)
+        {
+            if (entry.Key == null) continue;
+
+            Material material = entry.Key.material;
+            if (material != null && material.HasProperty("_Color"))
+                material.color = entry.Value;
+        }
+    }
+
+    System.Collections.IEnumerator EliminateRoutine()
+    {
+        if (eliminateDelay > 0f) yield return new WaitForSeconds(eliminateDelay);
+
+        if (destroyOnEliminate)
+            Destroy(gameObject);
+        else
+            gameObject.SetActive(false);
+    }
+
+    void UpdatePowerups()
+    {
+        if (_activePowerups.Count == 0) return;
+
+        float speed = 1f, damage = 1f, radius = 1f, cooldown = 1f, spin = 1f;
+
+        for (int i = _activePowerups.Count - 1; i >= 0; i--)
+        {
+            var p = _activePowerups[i];
+            if (Time.time >= p.expiresAt)
+            {
+                _activePowerups.RemoveAt(i);
+                continue;
+            }
+
+            if (p.data == null) continue;
+
+            switch (p.data.type)
+            {
+                case PowerupType.SpeedMultiplier: speed *= p.data.magnitude; break;
+                case PowerupType.DamageMultiplier: damage *= p.data.magnitude; break;
+                case PowerupType.RadiusMultiplier: radius *= p.data.magnitude; break;
+                case PowerupType.CooldownMultiplier: cooldown *= p.data.magnitude; break;
+                case PowerupType.SpinMultiplier: spin *= p.data.magnitude; break;
+            }
+        }
+
+        speedMultiplier = speed; damageMultiplier = damage; radiusMultiplier = radius;
+        cooldownMultiplier = cooldown; spinMultiplier = spin;
+    }
+
+    public void ForceEliminate()
+    {
+        if (!IsAlive)
+            return;
+
+        CurrentHealth = 0;
+        OnEliminated?.Invoke(this);
+        StartCoroutine(EliminateRoutine());
+    }
+}

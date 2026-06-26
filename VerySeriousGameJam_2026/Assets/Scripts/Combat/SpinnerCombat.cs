@@ -108,6 +108,8 @@ public class SpinnerCombat : MonoBehaviour
             ForceMode.VelocityChange);
 
         controller.LockControl(dashDuration * 0.5f);
+
+        AudioController.Instance?.PlayDash();
     }
 
     public void TryLungeAttack()
@@ -134,6 +136,8 @@ public class SpinnerCombat : MonoBehaviour
             ForceMode.VelocityChange);
 
         controller.LockControl(attackDuration);
+
+        AudioController.Instance?.PlayAttack();
     }
 
     public void TrySweepAttack()
@@ -170,6 +174,8 @@ public class SpinnerCombat : MonoBehaviour
             targetMask: sweepTargetMask);
 
         _nextSweepTime = Time.time + sweepCooldown * controller.FinalCooldownMultiplier;
+
+        AudioController.Instance?.PlayAttack();
     }
 
     public void UnlockSweepAttack()
