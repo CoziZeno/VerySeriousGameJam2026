@@ -56,7 +56,7 @@ public class ShopUI : MonoBehaviour
     {
         ResolvePlayerUpgradeManager();
 
-        if (_doubleHealthBought || playerUpgradeManager == null || doubleHealthUpgrade == null)
+        if (HasDoubleHealthUpgrade() || playerUpgradeManager == null || doubleHealthUpgrade == null)
             return;
 
         playerUpgradeManager.AddUpgrade(doubleHealthUpgrade);
@@ -81,8 +81,10 @@ public class ShopUI : MonoBehaviour
 
     void RefreshDoubleHealthButton()
     {
-        if (!_doubleHealthBought)
+        if (!HasDoubleHealthUpgrade())
             return;
+
+        _doubleHealthBought = true;
 
         if (doubleHealthButton != null)
             doubleHealthButton.interactable = false;
@@ -107,5 +109,14 @@ public class ShopUI : MonoBehaviour
 
         if (playerController != null)
             playerUpgradeManager = playerController.GetComponent<SpinnerUpgradeManager>();
+    }
+
+    bool HasDoubleHealthUpgrade()
+    {
+        if (_doubleHealthBought)
+            return true;
+
+        return playerUpgradeManager != null &&
+            playerUpgradeManager.HasModule<DoubleHealthUpgradeModule>();
     }
 }

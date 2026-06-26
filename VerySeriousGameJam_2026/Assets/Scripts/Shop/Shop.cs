@@ -15,14 +15,24 @@ public class Shop : MonoBehaviour
     public TMP_Text sweepAttackButtonText;
     public string sweepPurchasedText = "Bought";
 
+    [Header("Double Health Upgrade")]
+    public SpinnerUpgradeManager playerUpgradeManager;
+    public UpgradeData doubleHealthUpgrade;
+    public Button doubleHealthButton;
+    public TMP_Text doubleHealthButtonText;
+    public string doubleHealthPurchasedText = "Bought";
+
     private bool playerInside;
+    bool _doubleHealthBought;
 
     void Start()
     {
         ResolvePlayerCombat();
+        ResolvePlayerUpgradeManager();
         shopUI.SetActive(false);
         interactMessage.SetActive(false);
         RefreshSweepAttackButton();
+        RefreshDoubleHealthButton();
     }
 
     void Update()
@@ -89,6 +99,18 @@ public class Shop : MonoBehaviour
         RefreshSweepAttackButton();
     }
 
+    public void BuyDoubleHealthButton()
+    {
+        ResolvePlayerUpgradeManager();
+
+        if (HasDoubleHealthUpgrade() || playerUpgradeManager == null || doubleHealthUpgrade == null)
+            return;
+
+        playerUpgradeManager.AddUpgrade(doubleHealthUpgrade);
+        _doubleHealthBought = true;
+        RefreshDoubleHealthButton();
+    }
+
     void RefreshSweepAttackButton()
     {
         if (playerCombat == null)
@@ -104,6 +126,20 @@ public class Shop : MonoBehaviour
             sweepAttackButtonText.text = sweepPurchasedText;
     }
 
+    void RefreshDoubleHealthButton()
+    {
+        if (!HasDoubleHealthUpgrade())
+            return;
+
+        _doubleHealthBought = true;
+
+        if (doubleHealthButton != null)
+            doubleHealthButton.interactable = false;
+
+        if (doubleHealthButtonText != null)
+            doubleHealthButtonText.text = doubleHealthPurchasedText;
+    }
+
     void ResolvePlayerCombat()
     {
         if (playerCombat != null)
@@ -111,5 +147,23 @@ public class Shop : MonoBehaviour
 
         if (playerController != null)
             playerCombat = playerController.GetComponent<SpinnerCombat>();
+    }
+
+    void ResolvePlayerUpgradeManager()
+    {
+        if (playerUpgradeManager != null)
+            return;
+
+        if (playerController != null)
+            playerUpgradeManager = playerController.GetComponent<SpinnerUpgradeManager>();
+    }
+
+    bool HasDoubleHealthUpgrade()
+    {
+        if (_doubleHealthBought)
+            return true;
+
+        return playerUpgradeManager != null &&
+            playerUpgradeManager.HasModule<DoubleHealthUpgradeModule>();
     }
 }
